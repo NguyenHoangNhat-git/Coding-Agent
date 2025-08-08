@@ -1,0 +1,8 @@
+backend/__pycache__
+
+package-lock.json
+
+extension/node_modules
+extension/README.md
+extension/extension-quickstart.md
+extension/CHANGELOG.md
