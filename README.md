@@ -92,7 +92,7 @@ npm install
 You can change:
 
 - **Backend model** (e.g., CodeLlama, Qwen) in `backend/main.py`.
-- **Default prompt** in `vsc-extension/src/extension.ts`.
+- **Default prompt** in `extension/src/extension.ts`.
 
 ---
 
