@@ -77,6 +77,7 @@ Your API will be available at `http://localhost:8000`.
 ```bash
 cd ../extension
 npm install
+# may have to run 'npm run watch' or 'npm run compile' if you modify sth
 ```
 
 #### Run in Development Mode
