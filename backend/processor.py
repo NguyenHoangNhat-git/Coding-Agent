@@ -27,7 +27,8 @@ def stream_model(code: str, instruction: str) -> str:
 
     # Yield output line by line
     for line in process.stdout:
-        yield f'{{"chunk": {json.dumps(line)}}}\n'
+        # yield f'{{"chunk": {json.dumps(line)}}}\n'
+        yield line.rstrip("\n")
 
     # Ensure clean shutdown
     process.stdout.close()
