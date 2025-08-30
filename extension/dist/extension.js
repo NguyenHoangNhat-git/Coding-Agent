@@ -58,7 +58,7 @@ async function streamCode(code, instruction, onChunk) {
 // src/extension.ts
 function activate(context) {
   console.log('Congratulations, your extension "simple-code-agent" is now active!');
-  const disposable = vscode.commands.registerCommand("simple-code-agent.explainCode", async () => {
+  const disposable = vscode.commands.registerCommand("vsc-extension.explainCode", async () => {
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
       vscode.window.showErrorMessage("No code selected");

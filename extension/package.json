@@ -15,7 +15,7 @@
     "commands": [
       {
         "command": "vsc-extension.explainCode",
-         "title": "AI Assistant: Explain Code"
+         "title": "Simple code agent: Explain Code"
       }
     ]
   },
