@@ -10,6 +10,7 @@ It uses a FastAPI backend with a local LLM (e.g., Qwen2.5 7B by default) and a c
 - ⚡ **Runs locally** — keep your code private.
 - 📝 **Code selection processing** — highlight code and ask the AI anything.
 - 🔄 **Streaming responses** for real-time feedback.
+- 🧠 **Short-term memory** — remembers previous interactions in a session.
 - 🖥 **VSCode integration** via a custom extension.
 - 🧩 Easily switch to different LLMs (CodeLlama, Qwen, etc.).
 
@@ -85,6 +86,18 @@ npm install
 1. Open the `extension` folder in VSCode.
 2. Press **F5** — this launches a new **Extension Development Host** window.
 3. In that new window, open any code file, select some code, press **Ctrl+Shift+P**, run `Simple Code Agent: Explain Code` -> Edit the prompt.
+
+---
+
+## 🧠 Memory
+
+- This project now supports short-term memory for conversations.
+
+- Each session (session_id="default" by default) maintains its own history of user prompts and AI responses (check `backend/memory.py` to change default limits).
+
+- You can extend this later to support multiple conversations or users by changing the session_id passed from the extension.
+
+- Memory currently lives in RAM and resets when the backend restarts.
 
 ---
 
