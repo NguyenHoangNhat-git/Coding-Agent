@@ -2,15 +2,28 @@ import subprocess
 import json
 
 
-def stream_model(code: str, instruction: str) -> str:
+def stream_model(code: str, instruction: str, memory: list):
+    # build prompt from memory
+    conversation = ""
+    for msg in memory:
+        role = msg["role"].upper()
+        content = msg["content"]
+        conversation += f"{role}: {content}\n\n"
+
+    # add lastest user request
+    conversation += f"USER: Code:\n{code}\nInstruction:\n{instruction}\n\n"
+
     prompt = f"""
             You are a helpful AI coding assistant.
+
+            Previous conversations: {conversation}
 
             Task: {instruction}
 
             Code:
             ```python
-            {code}"""
+            {code}
+            ```"""
 
     process = subprocess.Popen(
         ["ollama", "run", "qwen2.5-coder:7b"],
@@ -30,6 +43,5 @@ def stream_model(code: str, instruction: str) -> str:
         # yield f'{{"chunk": {json.dumps(line)}}}\n'
         yield line.rstrip("\n")
 
-    # Ensure clean shutdown
     process.stdout.close()
     process.wait()
