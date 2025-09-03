@@ -91,7 +91,7 @@ function activate(context) {
     outputChannel.appendLine(`\u{1F9E0} Task: ${instruction}
 `);
     await streamCode(code, instruction, sessionID, (chunk) => {
-      outputChannel.appendLine(chunk);
+      outputChannel.append(chunk);
     });
   });
   const resetDiposable = vscode.commands.registerCommand("simple-code-agent.resetSession", async () => {

@@ -34,7 +34,7 @@ export function activate(context: vscode.ExtensionContext) {
 		outputChannel.appendLine(`🧠 Task: ${instruction}\n`);
 
 		await streamCode(code, instruction, sessionID, (chunk : string) => {
-			outputChannel.appendLine(chunk);
+			outputChannel.append(chunk);
 		})
 	});
 
