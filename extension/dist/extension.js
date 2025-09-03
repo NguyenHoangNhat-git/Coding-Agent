@@ -37,7 +37,7 @@ module.exports = __toCommonJS(extension_exports);
 var vscode = __toESM(require("vscode"));
 
 // src/apiClient.ts
-async function streamCode(code, instruction, onChunk) {
+async function streamCode(code, instruction, sessionID2, onChunk) {
   const response = await fetch("http://localhost:8000/stream-code", {
     method: "POST",
     headers: {
@@ -54,11 +54,23 @@ async function streamCode(code, instruction, onChunk) {
     onChunk(chunk);
   }
 }
+async function resetSession(sessionId = "default") {
+  const response = await fetch("http://localhost:8000/reset-session", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ "session_id": sessionId })
+  });
+  if (!response.ok) {
+    throw new Error("Failed to reset session");
+  }
+  return await response.json();
+}
 
 // src/extension.ts
+var sessionID = vscode.env.sessionId;
 function activate(context) {
   console.log('Congratulations, your extension "simple-code-agent" is now active!');
-  const disposable = vscode.commands.registerCommand("vsc-extension.explainCode", async () => {
+  const disposable = vscode.commands.registerCommand("simple-code-agent.explainCode", async () => {
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
       vscode.window.showErrorMessage("No code selected");
@@ -78,11 +90,20 @@ function activate(context) {
     outputChannel.show(true);
     outputChannel.appendLine(`\u{1F9E0} Task: ${instruction}
 `);
-    await streamCode(code, instruction, (chunk) => {
+    await streamCode(code, instruction, sessionID, (chunk) => {
       outputChannel.appendLine(chunk);
     });
   });
+  const resetDiposable = vscode.commands.registerCommand("simple-code-agent.resetSession", async () => {
+    try {
+      await resetSession(sessionID);
+      vscode.window.showInformationMessage("\u2705 AI Assistant memory has been reset!");
+    } catch (err) {
+      vscode.window.showErrorMessage("\u274C Failed to reset memory: " + err);
+    }
+  });
   context.subscriptions.push(disposable);
+  context.subscriptions.push(resetDiposable);
 }
 function deactivate() {
 }

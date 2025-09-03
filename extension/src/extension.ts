@@ -1,14 +1,14 @@
-// The module 'vscode' contains the VS Code extensibility API
-// Import the module and reference it with the alias vscode in your code below
 import { EOF } from 'dns';
 import * as vscode from 'vscode';
-import { streamCode } from './apiClient';
+import { streamCode, resetSession } from './apiClient';
 
-// This method is called when your extension is activated
-// Your extension is activated the very first time the command is executed
+const sessionID = vscode.env.sessionId;
+
 export function activate(context: vscode.ExtensionContext) {
 	console.log('Congratulations, your extension "simple-code-agent" is now active!');
-	const disposable = vscode.commands.registerCommand('vsc-extension.explainCode', async () => {
+
+	// Command: highlight a code and ask agent about it
+	const disposable = vscode.commands.registerCommand('simple-code-agent.explainCode', async () => {
 		// Runs everytime a command is executed
 		const editor = vscode.window.activeTextEditor;
 		if(!editor){
@@ -33,12 +33,25 @@ export function activate(context: vscode.ExtensionContext) {
 		outputChannel.show(true);
 		outputChannel.appendLine(`🧠 Task: ${instruction}\n`);
 
-		await streamCode(code, instruction, (chunk : string) => {
+		await streamCode(code, instruction, sessionID, (chunk : string) => {
 			outputChannel.appendLine(chunk);
 		})
 	});
 
+
+	// Command: Clear all conversations of the current session
+	const resetDiposable = vscode.commands.registerCommand("simple-code-agent.resetSession", async () => {
+		try{
+			await resetSession(sessionID);
+			vscode.window.showInformationMessage("✅ AI Assistant memory has been reset!");
+		} catch(err){
+			vscode.window.showErrorMessage("❌ Failed to reset memory: " + err);
+		}
+	})
+
+
 	context.subscriptions.push(disposable);
+	context.subscriptions.push(resetDiposable);
 }
 
 // This method is called when your extension is deactivated

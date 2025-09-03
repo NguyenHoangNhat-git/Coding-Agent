@@ -38,3 +38,14 @@ def stream_code(request: CodeRequest):
         memory.append({"role": "assistant", "content": assistant_reply})
 
     return StreamingResponse(stream_and_store(), media_type="text/plain")
+
+
+class ResetRequest(BaseModel):
+    session_id: str = "default"
+
+
+@app.post("/reset-session")
+def reset_session(request: ResetRequest):
+    session_id = request.session_id
+    sessions[session_id] = []
+    return {"status": "reset", "session_id": session_id}
