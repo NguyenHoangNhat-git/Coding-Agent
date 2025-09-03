@@ -93,13 +93,13 @@ npm install
 
 - This project now supports short-term memory for conversations.
 
-- Each session (session_id="default" by default) maintains its own history of user prompts and AI responses (check `backend/memory.py` to change default limits).
+- Each VSCode window (extension session) has a unique session ID (`vscode.env.sessionId`) and maintains its own history of user prompts and AI responses.
 
-- You can extend this later to support multiple conversations or users by changing the session_id passed from the extension.
+- The session memory is stored in RAM on the backend.
 
-- Memory currently lives in RAM and resets when the backend restarts.
+- Memory resets when the backend restarts or when you explicitly reset a session with the **Reset Session** command in the extension.
 
----
+--
 
 ## ⚙️ Configuration
 
