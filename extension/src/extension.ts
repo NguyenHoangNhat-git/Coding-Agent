@@ -2,40 +2,38 @@ import { EOF } from 'dns';
 import * as vscode from 'vscode';
 import { streamCode, resetSession } from './apiClient';
 
+async function callAgent(instruction: string, code?: string) {
+	const outputChannel = vscode.window.createOutputChannel("AI assistant");
+	outputChannel.show(true);
+	outputChannel.appendLine(`🧠 Task: ${instruction}\n`);
+
+	await streamCode(code || "", instruction, (chunk: string) => {
+		outputChannel.append(chunk);
+	});
+}
+
 const sessionID = vscode.env.sessionId;
 
 export function activate(context: vscode.ExtensionContext) {
 	console.log('Congratulations, your extension "simple-code-agent" is now active!');
 
 	// Command: highlight a code and ask agent about it
-	const disposable = vscode.commands.registerCommand('simple-code-agent.explainCode', async () => {
-		// Runs everytime a command is executed
+	const askAIDisposable = vscode.commands.registerCommand('simple-code-agent.askAgent', async () => {
 		const editor = vscode.window.activeTextEditor;
-		if(!editor){
-			vscode.window.showErrorMessage("No code selected");
-			return
-		}
+		let code = "";
 
-		const code = editor.document.getText(editor.selection);
-		if(!code) {
-			vscode.window.showInformationMessage("Please select some code first");
-			return;
+		if(editor){
+			code = editor.document.getText(editor.selection);
 		}
 
 		const instruction = await vscode.window.showInputBox({
-			prompt: "What do you want to do with the code",
-			value: "Explain this function",
+			prompt: code ? "What do you want to do with the code" : "Ask the AI assistant anything about coding",
+			value: code ? "Explain this function" : "",
 		})
 
 		if(!instruction) return;
 
-		const outputChannel = vscode.window.createOutputChannel("AI assistant(Qwen 2.5 7B)");
-		outputChannel.show(true);
-		outputChannel.appendLine(`🧠 Task: ${instruction}\n`);
-
-		await streamCode(code, instruction, sessionID, (chunk : string) => {
-			outputChannel.append(chunk);
-		})
+		await callAgent(instruction, code);
 	});
 
 
@@ -50,7 +48,7 @@ export function activate(context: vscode.ExtensionContext) {
 	})
 
 
-	context.subscriptions.push(disposable);
+	context.subscriptions.push(askAIDisposable);
 	context.subscriptions.push(resetDiposable);
 }
 

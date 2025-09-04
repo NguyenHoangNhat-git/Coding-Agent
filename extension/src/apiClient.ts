@@ -5,7 +5,6 @@ import { decode } from "punycode";
 export async function streamCode(
     code: string, 
     instruction: string, 
-    sessionID: string, 
     onChunk: (chunk: string) => void
 ) {
     const response = await fetch("http://localhost:8000/stream-code", {

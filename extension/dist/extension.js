@@ -37,7 +37,7 @@ module.exports = __toCommonJS(extension_exports);
 var vscode = __toESM(require("vscode"));
 
 // src/apiClient.ts
-async function streamCode(code, instruction, sessionID2, onChunk) {
+async function streamCode(code, instruction, onChunk) {
   const response = await fetch("http://localhost:8000/stream-code", {
     method: "POST",
     headers: {
@@ -67,32 +67,30 @@ async function resetSession(sessionId = "default") {
 }
 
 // src/extension.ts
+async function callAgent(instruction, code) {
+  const outputChannel = vscode.window.createOutputChannel("AI assistant");
+  outputChannel.show(true);
+  outputChannel.appendLine(`\u{1F9E0} Task: ${instruction}
+`);
+  await streamCode(code || "", instruction, (chunk) => {
+    outputChannel.append(chunk);
+  });
+}
 var sessionID = vscode.env.sessionId;
 function activate(context) {
   console.log('Congratulations, your extension "simple-code-agent" is now active!');
-  const disposable = vscode.commands.registerCommand("simple-code-agent.explainCode", async () => {
+  const askAIDisposable = vscode.commands.registerCommand("simple-code-agent.askAgent", async () => {
     const editor = vscode.window.activeTextEditor;
-    if (!editor) {
-      vscode.window.showErrorMessage("No code selected");
-      return;
-    }
-    const code = editor.document.getText(editor.selection);
-    if (!code) {
-      vscode.window.showInformationMessage("Please select some code first");
-      return;
+    let code = "";
+    if (editor) {
+      code = editor.document.getText(editor.selection);
     }
     const instruction = await vscode.window.showInputBox({
-      prompt: "What do you want to do with the code",
-      value: "Explain this function"
+      prompt: code ? "What do you want to do with the code" : "Ask the AI assistant anything about coding",
+      value: code ? "Explain this function" : ""
     });
     if (!instruction) return;
-    const outputChannel = vscode.window.createOutputChannel("AI assistant(Qwen 2.5 7B)");
-    outputChannel.show(true);
-    outputChannel.appendLine(`\u{1F9E0} Task: ${instruction}
-`);
-    await streamCode(code, instruction, sessionID, (chunk) => {
-      outputChannel.append(chunk);
-    });
+    await callAgent(instruction, code);
   });
   const resetDiposable = vscode.commands.registerCommand("simple-code-agent.resetSession", async () => {
     try {
@@ -102,7 +100,7 @@ function activate(context) {
       vscode.window.showErrorMessage("\u274C Failed to reset memory: " + err);
     }
   });
-  context.subscriptions.push(disposable);
+  context.subscriptions.push(askAIDisposable);
   context.subscriptions.push(resetDiposable);
 }
 function deactivate() {

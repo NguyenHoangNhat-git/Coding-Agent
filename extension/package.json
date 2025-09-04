@@ -14,8 +14,8 @@
   "contributes": {
     "commands": [
       {
-        "command": "simple-code-agent.explainCode",
-        "title": "Simple code agent: Explain Code"
+        "command": "simple-code-agent.askAgent",
+        "title": "Simple code agent: Ask Agent"
       },
       {
         "command": "simple-code-agent.resetSession",
