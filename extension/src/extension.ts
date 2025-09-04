@@ -1,6 +1,7 @@
-import { EOF } from 'dns';
 import * as vscode from 'vscode';
 import { streamCode, resetSession } from './apiClient';
+
+const sessionID = vscode.env.sessionId;
 
 async function callAgent(instruction: string, code?: string) {
 	const outputChannel = vscode.window.createOutputChannel("AI assistant");
@@ -9,10 +10,9 @@ async function callAgent(instruction: string, code?: string) {
 
 	await streamCode(code || "", instruction, (chunk: string) => {
 		outputChannel.append(chunk);
-	});
+	}, sessionID);
 }
 
-const sessionID = vscode.env.sessionId;
 
 export function activate(context: vscode.ExtensionContext) {
 	console.log('Congratulations, your extension "simple-code-agent" is now active!');

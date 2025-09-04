@@ -5,14 +5,15 @@ import { decode } from "punycode";
 export async function streamCode(
     code: string, 
     instruction: string, 
-    onChunk: (chunk: string) => void
+    onChunk: (chunk: string) => void,
+    sessionID: string = "default"
 ) {
     const response = await fetch("http://localhost:8000/stream-code", {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
         },
-        body: JSON.stringify({code, instruction}),
+        body: JSON.stringify({code, instruction, sessionID}),
     })
 
     const reader =  response.body?.getReader();

@@ -37,13 +37,13 @@ module.exports = __toCommonJS(extension_exports);
 var vscode = __toESM(require("vscode"));
 
 // src/apiClient.ts
-async function streamCode(code, instruction, onChunk) {
+async function streamCode(code, instruction, onChunk, sessionID2 = "default") {
   const response = await fetch("http://localhost:8000/stream-code", {
     method: "POST",
     headers: {
       "Content-Type": "application/json"
     },
-    body: JSON.stringify({ code, instruction })
+    body: JSON.stringify({ code, instruction, sessionID: sessionID2 })
   });
   const reader = response.body?.getReader();
   const decoder = new TextDecoder("utf-8");
@@ -67,6 +67,7 @@ async function resetSession(sessionId = "default") {
 }
 
 // src/extension.ts
+var sessionID = vscode.env.sessionId;
 async function callAgent(instruction, code) {
   const outputChannel = vscode.window.createOutputChannel("AI assistant");
   outputChannel.show(true);
@@ -74,9 +75,8 @@ async function callAgent(instruction, code) {
 `);
   await streamCode(code || "", instruction, (chunk) => {
     outputChannel.append(chunk);
-  });
+  }, sessionID);
 }
-var sessionID = vscode.env.sessionId;
 function activate(context) {
   console.log('Congratulations, your extension "simple-code-agent" is now active!');
   const askAIDisposable = vscode.commands.registerCommand("simple-code-agent.askAgent", async () => {
