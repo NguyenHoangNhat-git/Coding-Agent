@@ -8,7 +8,7 @@ It uses a FastAPI backend with a local LLM (e.g., Qwen2.5 7B by default) and a c
 ## ✨ Features
 
 - ⚡ **Runs locally** — keep your code private.
-- 📝 **Code selection processing** — highlight code and ask the AI anything.
+- 📝 **Code selection processing** — highlight code(optional) and ask the AI anything.
 - 🔄 **Streaming responses** for real-time feedback.
 - 🧠 **Short-term memory** — remembers previous interactions in a session.
 - 🖥 **VSCode integration** via a custom extension.
@@ -85,7 +85,7 @@ npm install
 
 1. Open the `extension` folder in VSCode.
 2. Press **F5** — this launches a new **Extension Development Host** window.
-3. In that new window, open any code file, select some code, press **Ctrl+Shift+P**, run `Simple Code Agent: Explain Code` -> Edit the prompt.
+3. In that new window, open any code file, select some code, press **Ctrl+Shift+P**, run `Simple Code Agent: Ask Agent` -> Edit the prompt.
 
 ---
 
