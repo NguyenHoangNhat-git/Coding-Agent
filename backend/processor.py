@@ -1,6 +1,6 @@
 from ollama import chat, Client
 from typing import Generator, List, Dict
-from .db import get_messages, append_messages
+from db import get_messages, append_messages
 
 Message = Dict[str, str]
 
@@ -13,15 +13,12 @@ SYSTEM_PROMPT = (
 
 
 def stream_model(
-    code: str, instruction: str, session_id: str
+    code: str, instruction: str, memory: List[Message], session_id: str
 ) -> Generator[str, None, None]:
     """
-    Streams model output using Ollama's chat API and stores messages in MongoDB via db.py.
+    Streams model output using Ollama's chat API and saves conversation to MongoDB.
+    `memory` is a list of {"role","content"} dicts.
     """
-
-    # Fetch previous messages from DB
-    memory: List[Message] = get_messages(session_id=session_id)
-
     # Build chat history
     messages: List[Message] = [{"role": "system", "content": SYSTEM_PROMPT}]
     messages.extend(memory)
