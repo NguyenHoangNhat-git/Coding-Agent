@@ -19,16 +19,21 @@ def get_messages(session_id: str, limit: Optional[int] = None) -> List[Message]:
     """
     Return messages for a session. If limit is provided, returns the last `limit` messages.
     """
-    projection = {"_id": 0, "messages": 1}
-    doc = sessions_col.find_one({"session_id": session_id}, projection)
+    if limit:
+        doc = sessions_col.find_one(
+            {"session_id": session_id},
+            {"_id": 0, "messages": {"$slice": -limit}}
+        )
+    else:
+        doc = sessions_col.find_one(
+            {"session_id": session_id}, {"_id": 0, "messages": 1}
+        )
 
     if not doc:
         return []
 
-    msgs = doc.get("messages", [])
-    if limit:
-        return msgs[-limit:]
-    return msgs
+    return doc.get("messages", [])
+
 
 
 def append_messages(session_id: str, role: str, content: str):
