@@ -7,9 +7,7 @@ Message = Dict[str, str]
 # Create one client per process so the model can stay warm
 client = Client(host="http://127.0.0.1:11434")
 
-SYSTEM_PROMPT = (
-    "You are a helpful AI coding assistant. Be concise and use Markdown for code."
-)
+SYSTEM_PROMPT = "You are a helpful AI coding assistant. Be concise (don't show detail unless being asked) and use Markdown for code."
 
 
 def stream_model(
@@ -19,6 +17,9 @@ def stream_model(
     Streams model output using Ollama's chat API and saves conversation to MongoDB.
     `memory` is a list of {"role","content"} dicts.
     """
+    # Load history from DB
+    # memory = get_messages(session_id, limit=50)
+
     # Build chat history
     messages: List[Message] = [{"role": "system", "content": SYSTEM_PROMPT}]
     messages.extend(memory)
@@ -28,10 +29,11 @@ def stream_model(
             "content": f"Task: {instruction}\n\nCode:\n```text\n{code}\n```",
         }
     )
+    print(messages)
 
     # Save user message to DB
     append_messages(
-        session_id, "user", instruction if not code else f"{instruction}\n\n{code}"
+        session_id, "user", f"Task: {instruction}\n\nCode:\n```text\n{code}\n```"
     )
 
     # Stream from model. `keep_alive` helps keep the model loaded between calls.

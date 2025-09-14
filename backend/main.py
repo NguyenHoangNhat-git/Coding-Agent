@@ -19,10 +19,13 @@ class CodeRequest(BaseModel):
 
 @app.post("/stream-code")
 def stream_code(request: CodeRequest):
+    # Load the last N messages
+    memory = get_messages(request.session_id, limit=50)
+
     generator = stream_model(
         code=request.code,
         instruction=request.instruction,
-        memory=[],  # not needed if processor.py pulls from DB
+        memory=memory,
         session_id=request.session_id,
     )
     return StreamingResponse(generator, media_type="text/plain")

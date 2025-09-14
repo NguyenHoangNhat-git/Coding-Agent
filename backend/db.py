@@ -19,16 +19,16 @@ def get_messages(session_id: str, limit: Optional[int] = None) -> List[Message]:
     """
     Return messages for a session. If limit is provided, returns the last `limit` messages.
     """
-    if limit:
-        doc = sessions_col.find_one(
-            {"session_id": session_id}, {"messages": {"$slice": -limit}}
-        )
-    else:
-        doc = sessions_col.find_one({"session_id": session_id})
+    projection = {"_id": 0, "messages": 1}
+    doc = sessions_col.find_one({"session_id": session_id}, projection)
 
     if not doc:
         return []
-    return doc.get("messages", [])
+
+    msgs = doc.get("messages", [])
+    if limit:
+        return msgs[-limit:]
+    return msgs
 
 
 def append_messages(session_id: str, role: str, content: str):
@@ -36,10 +36,17 @@ def append_messages(session_id: str, role: str, content: str):
     Append a single message (user/assistant) to session.
     Creates session document if it doesn't exist.
     """
-    msg = {"role": role, "content": content, "ts": datetime.utcnow()}
+    msg = {
+        "role": role,
+        "content": content,
+        "ts": datetime.utcnow().isoformat(),  # safer for JSON export
+    }
     sessions_col.update_one(
         {"session_id": session_id},
-        {"$push": {"messages": msg}, "$set": {"last_updated": datetime.utcnow()}},
+        {
+            "$push": {"messages": msg},
+            "$set": {"last_updated": datetime.utcnow()},
+        },
         upsert=True,
     )
 
