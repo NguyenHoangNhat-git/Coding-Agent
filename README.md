@@ -69,6 +69,12 @@ cd backend
 uvicorn main:app --reload --port 8000
 ```
 
+Run the MongoDB
+
+```bash
+sudo systemctl start mongod
+```
+
 Your API will be available at `http://localhost:8000`.
 
 ---
