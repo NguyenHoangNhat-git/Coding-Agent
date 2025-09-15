@@ -1,14 +1,16 @@
 import * as vscode from "vscode";
-import { streamCode, resetSession, createSession } from "./apiClient";
+import { streamCode, getCurrentSession, createSession, resetSession } from "./apiClient";
 
-let sessionID: string | null = null;
-
-
-async function ensureSession() {
-    if (!sessionID) {
-        sessionID = await createSession("vscode-session", true);
+async function ensureSession(): Promise<string> {
+    try {
+        // Try to get the current session (will throw if none)
+        const sid = await getCurrentSession();
+        return sid;
+    } catch (err) {
+        // If no current session, create one and mark it current
+        const sid = await createSession("vscode-session", true);
+        return sid;
     }
-    return sessionID;
 }
 
 async function callAgent(instruction: string, code?: string) {
@@ -26,37 +28,35 @@ async function callAgent(instruction: string, code?: string) {
 export function activate(context: vscode.ExtensionContext) {
     console.log('Extension "simple-code-agent" is active!');
 
-    // Command: highlight code and ask AI
     const askAIDisposable = vscode.commands.registerCommand("simple-code-agent.askAgent", async () => {
         const editor = vscode.window.activeTextEditor;
         let code = "";
-
-        if (editor) {
-            code = editor.document.getText(editor.selection);
-        }
+        if (editor) code = editor.document.getText(editor.selection);
 
         const instruction = await vscode.window.showInputBox({
             prompt: code ? "What do you want to do with the code?" : "Ask the AI assistant anything about coding",
             value: code ? "Explain this function" : "",
         });
-
         if (!instruction) return;
 
         await callAgent(instruction, code);
     });
 
-    // Command: reset current session
     const resetDisposable = vscode.commands.registerCommand("simple-code-agent.resetSession", async () => {
         try {
-            const sid = await ensureSession();
+            // Check whether a current session exists (GET /current-session)
+            const sid = await getCurrentSession(); // will throw if none
+            // If we have one, clear it. This call will NOT create a new session.
             await resetSession(sid);
-            vscode.window.showInformationMessage("✅ AI Assistant memory has been reset!");
+            vscode.window.showInformationMessage(`✅ AI Assistant memory cleared for session ${sid}`);
         } catch (err: any) {
-            vscode.window.showErrorMessage("❌ Failed to reset memory: " + err.message);
+            // If getCurrentSession threw 404 -> show friendly message
+            vscode.window.showInformationMessage("No current session to reset. Create a new session by asking the assistant.");
         }
     });
 
-    context.subscriptions.push(askAIDisposable, resetDisposable);
+    context.subscriptions.push(askAIDisposable);
+    context.subscriptions.push(resetDisposable);
 }
 
 export function deactivate() {}
