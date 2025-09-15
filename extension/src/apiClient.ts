@@ -1,42 +1,62 @@
-import { reporters } from "mocha";
-import { syncBuiltinESMExports } from "module";
-import { decode } from "punycode";
+const BASE = "http://127.0.0.1:8000";
+
+interface SessionResponse {
+    session_id: string;
+}
+
+interface ResetResponse {
+    status: string;
+    session_id: string;
+}
+
 
 export async function streamCode(
     code: string, 
     instruction: string, 
     onChunk: (chunk: string) => void,
-    sessionID: string = "default"
+    session_id: string = "default"
 ) {
-    const response = await fetch("http://localhost:8000/stream-code", {
+    const response = await fetch(`${BASE}/stream-code`, {
         method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-        },
-        body: JSON.stringify({code, instruction, sessionID}),
-    })
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code, instruction, session_id }),
+    });
 
-    const reader =  response.body?.getReader();
+    if (!response.body) throw new Error("No response body from server");
+
+    const reader = response.body.getReader();
     const decoder = new TextDecoder("utf-8");
 
-    while(true){
-        const {done, value} = await reader!.read();
+    while (true) {
+        const { done, value } = await reader.read();
         if (done) break;
-        const chunk = decoder.decode(value);
+        const chunk = decoder.decode(value, { stream: true });
         onChunk(chunk);
     }
 }
 
-export async function resetSession(sessionId: string = "default") {
-    const response = await fetch("http://localhost:8000/reset-session",{
-            method: "POST",
-            headers: {"Content-Type": "application/json"},
-            body: JSON.stringify({"session_id": sessionId}),
-        });
-    
-    if(!response.ok){
+export async function resetSession(session_id: string = "default"): Promise<ResetResponse> {
+    const response = await fetch(`${BASE}/reset-session`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session_id }),
+    });
+
+    if (!response.ok) {
         throw new Error("Failed to reset session");
-    }	
-    
-    return await response.json();
+    }
+
+    return (await response.json()) as ResetResponse;
+}
+
+
+export async function createSession(name?: string, makeCurrent: boolean = false) {
+    const res = await fetch(`${BASE}/sessions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, make_current: makeCurrent }),
+    });
+    if (!res.ok) throw new Error("Failed to create session");
+    const data = (await res.json()) as SessionResponse;
+    return data.session_id;
 }

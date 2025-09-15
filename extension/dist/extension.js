@@ -37,48 +37,65 @@ module.exports = __toCommonJS(extension_exports);
 var vscode = __toESM(require("vscode"));
 
 // src/apiClient.ts
-async function streamCode(code, instruction, onChunk, sessionID2 = "default") {
-  const response = await fetch("http://localhost:8000/stream-code", {
+var BASE = "http://127.0.0.1:8000";
+async function streamCode(code, instruction, onChunk, session_id = "default") {
+  const response = await fetch(`${BASE}/stream-code`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({ code, instruction, sessionID: sessionID2 })
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ code, instruction, session_id })
   });
-  const reader = response.body?.getReader();
+  if (!response.body) throw new Error("No response body from server");
+  const reader = response.body.getReader();
   const decoder = new TextDecoder("utf-8");
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
-    const chunk = decoder.decode(value);
+    const chunk = decoder.decode(value, { stream: true });
     onChunk(chunk);
   }
 }
-async function resetSession(sessionId = "default") {
-  const response = await fetch("http://localhost:8000/reset-session", {
+async function resetSession(session_id = "default") {
+  const response = await fetch(`${BASE}/reset-session`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ "session_id": sessionId })
+    body: JSON.stringify({ session_id })
   });
   if (!response.ok) {
     throw new Error("Failed to reset session");
   }
   return await response.json();
 }
+async function createSession(name, makeCurrent = false) {
+  const res = await fetch(`${BASE}/sessions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, make_current: makeCurrent })
+  });
+  if (!res.ok) throw new Error("Failed to create session");
+  const data = await res.json();
+  return data.session_id;
+}
 
 // src/extension.ts
-var sessionID = vscode.env.sessionId;
+var sessionID = null;
+async function ensureSession() {
+  if (!sessionID) {
+    sessionID = await createSession("vscode-session", true);
+  }
+  return sessionID;
+}
 async function callAgent(instruction, code) {
-  const outputChannel = vscode.window.createOutputChannel("AI assistant");
+  const outputChannel = vscode.window.createOutputChannel("AI Assistant");
   outputChannel.show(true);
   outputChannel.appendLine(`\u{1F9E0} Task: ${instruction}
 `);
+  const sid = await ensureSession();
   await streamCode(code || "", instruction, (chunk) => {
     outputChannel.append(chunk);
-  }, sessionID);
+  }, sid);
 }
 function activate(context) {
-  console.log('Congratulations, your extension "simple-code-agent" is now active!');
+  console.log('Extension "simple-code-agent" is active!');
   const askAIDisposable = vscode.commands.registerCommand("simple-code-agent.askAgent", async () => {
     const editor = vscode.window.activeTextEditor;
     let code = "";
@@ -86,22 +103,22 @@ function activate(context) {
       code = editor.document.getText(editor.selection);
     }
     const instruction = await vscode.window.showInputBox({
-      prompt: code ? "What do you want to do with the code" : "Ask the AI assistant anything about coding",
+      prompt: code ? "What do you want to do with the code?" : "Ask the AI assistant anything about coding",
       value: code ? "Explain this function" : ""
     });
     if (!instruction) return;
     await callAgent(instruction, code);
   });
-  const resetDiposable = vscode.commands.registerCommand("simple-code-agent.resetSession", async () => {
+  const resetDisposable = vscode.commands.registerCommand("simple-code-agent.resetSession", async () => {
     try {
-      await resetSession(sessionID);
+      const sid = await ensureSession();
+      await resetSession(sid);
       vscode.window.showInformationMessage("\u2705 AI Assistant memory has been reset!");
     } catch (err) {
-      vscode.window.showErrorMessage("\u274C Failed to reset memory: " + err);
+      vscode.window.showErrorMessage("\u274C Failed to reset memory: " + err.message);
     }
   });
-  context.subscriptions.push(askAIDisposable);
-  context.subscriptions.push(resetDiposable);
+  context.subscriptions.push(askAIDisposable, resetDisposable);
 }
 function deactivate() {
 }
