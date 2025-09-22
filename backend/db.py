@@ -16,7 +16,11 @@ sessions_col.create_index([("session_id", ASCENDING)], unique=True)
 Message = Dict[str, str]
 
 
-def create_session(session_id: Optional[str] = None, name: Optional[str] = None, make_current: bool = False) -> str:
+def create_session(
+    session_id: Optional[str] = None,
+    name: Optional[str] = None,
+    make_current: bool = False,
+) -> str:
     """
     Create a new session doc (or ensure it exists). Returns session_id.
     If make_current=True, sets this session as the current session in the meta collection.
@@ -67,11 +71,12 @@ def get_messages(session_id: str, limit: Optional[int] = None) -> List[Message]:
     """
     if limit:
         doc = sessions_col.find_one(
-            {"session_id": session_id},
-            {"_id": 0, "messages": {"$slice": -limit}}
+            {"session_id": session_id}, {"_id": 0, "messages": {"$slice": -limit}}
         )
     else:
-        doc = sessions_col.find_one({"session_id": session_id}, {"_id": 0, "messages": 1})
+        doc = sessions_col.find_one(
+            {"session_id": session_id}, {"_id": 0, "messages": 1}
+        )
 
     if not doc:
         return []
@@ -117,5 +122,9 @@ def list_sessions(limit: int = 100) -> List[Dict]:
     """
     Return recent sessions' metadata (no messages included).
     """
-    docs = sessions_col.find({}, {"_id": 0, "session_id": 1, "name": 1, "last_updated": 1}).sort("last_updated", -1).limit(limit)
+    docs = (
+        sessions_col.find({}, {"_id": 0, "session_id": 1, "name": 1, "last_updated": 1})
+        .sort("last_updated", -1)
+        .limit(limit)
+    )
     return list(docs)

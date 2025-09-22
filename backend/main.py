@@ -1,13 +1,13 @@
+# main.py
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import Optional
 import uuid
 
-from processor import stream_model
+from agent_processor import stream_model
 from db import (
     get_messages,
-    append_messages,
     clear_messages,
     create_session,
     set_current_session,
@@ -22,18 +22,13 @@ app = FastAPI()
 class CodeRequest(BaseModel):
     code: str
     instruction: str
-    session_id: Optional[str] = None  # require client to provide a session_id
+    session_id: Optional[str] = None
 
 
 @app.post("/stream-code")
 def stream_code(request: CodeRequest):
-    # session_id must be provided by client (extension) or the client should create session first
     if not request.session_id:
-        raise HTTPException(
-            status_code=400,
-            detail="session_id is required. Create or set current session first.",
-        )
-
+        raise HTTPException(status_code=400, detail="session_id is required.")
     sid = request.session_id
     if not session_exists(sid):
         raise HTTPException(status_code=404, detail="session not found")
@@ -46,7 +41,19 @@ def stream_code(request: CodeRequest):
         memory=memory,
         session_id=sid,
     )
-    return StreamingResponse(generator, media_type="text/plain")
+
+    return StreamingResponse(
+        generator,
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+# existing session endpoints
 
 
 class CreateSessionRequest(BaseModel):
@@ -58,7 +65,6 @@ class CreateSessionRequest(BaseModel):
 @app.post("/sessions")
 def create_session_endpoint(req: CreateSessionRequest):
     sid = req.session_id or uuid.uuid4().hex
-    # create session doc (if doesn't exist)
     create_session(session_id=sid, name=req.name, make_current=req.make_current)
     return {"session_id": sid}
 
@@ -72,7 +78,6 @@ def list_sessions_endpoint():
 def get_current_session_endpoint():
     sid = get_current_session()
     if not sid:
-        # return 404 to indicate no current session (so reset won't create one accidentally)
         raise HTTPException(status_code=404, detail="no current session set")
     return {"session_id": sid}
 
@@ -95,7 +100,6 @@ class ResetRequest(BaseModel):
 
 @app.post("/reset-session")
 def reset_session_endpoint(request: ResetRequest):
-    # use provided sid or current; do NOT create one if none exists
     sid = request.session_id or get_current_session()
     if not sid:
         raise HTTPException(status_code=404, detail="no session to reset")
@@ -103,7 +107,6 @@ def reset_session_endpoint(request: ResetRequest):
         raise HTTPException(status_code=404, detail="session not found")
     cleared = clear_messages(sid)
     if not cleared:
-        # did not exist or nothing to clear
         raise HTTPException(
             status_code=404, detail="session not found or nothing to clear"
         )
@@ -111,5 +114,5 @@ def reset_session_endpoint(request: ResetRequest):
 
 
 @app.get("/session/{session_id}")
-def get_session(session_id: str):
+def get_session_endpoint(session_id: str):
     return {"session_id": session_id, "messages": get_messages(session_id=session_id)}

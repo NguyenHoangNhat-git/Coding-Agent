@@ -2,3 +2,6 @@ fastapi
 pymongo
 uvicorn
 ollama
+langchain
+langchain-community
+langgraph
