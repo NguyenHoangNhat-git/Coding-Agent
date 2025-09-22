@@ -46,10 +46,12 @@ def stream_model(
 ) -> Generator[str, None, None]:
     """
     Run LangGraph agent with streaming and save conversation to MongoDB.
+    Uses stream_mode="messages" for token-level output.
     """
     user_prompt = f"Task: {instruction}\n\nCode:\n```text\n{code}\n```"
     append_messages(session_id, "user", user_prompt)
 
+    # Build conversation context
     messages_input = [
         SystemMessage(content=SYSTEM_PROMPT),
         *[
@@ -63,27 +65,30 @@ def stream_model(
         HumanMessage(content=user_prompt),
     ]
 
-    assistant_text = ""
+    assistant_reply = ""
 
     try:
-        # Stream from LangGraph agent
-        for event in agent.stream({"messages": messages_input}, stream_mode="values"):
-            if "messages" in event:
-                for msg in event["messages"]:
-                    if isinstance(msg, AIMessage) and msg.content:
-                        # msg.content can be a list of chunks or a string
-                        if isinstance(msg.content, str):
-                            assistant_text += msg.content
-                            yield msg.content
-                        elif isinstance(msg.content, list):
-                            for chunk in msg.content:
-                                if isinstance(chunk, str):
-                                    assistant_text += chunk
-                                    yield chunk
+        # Each event is (Message, metadata_dict)
+        for msg, metadata in agent.stream(
+            {"messages": messages_input}, stream_mode="messages"
+        ):
+            if isinstance(msg, AIMessage) and msg.content:
+                if isinstance(msg.content, str):
+                    chunk = msg.content
+                else:
+                    # handle structured chunks
+                    chunk = "".join(
+                        block["text"]
+                        for block in msg.content
+                        if block["type"] == "text"
+                    )
 
-        # Save the full assistant reply at the end
-        if assistant_text.strip():
-            append_messages(session_id, "assistant", assistant_text)
+                assistant_reply += chunk
+                yield chunk  # stream partial output immediately
+
+        # Save final reply
+        if assistant_reply.strip():
+            append_messages(session_id, "assistant", assistant_reply)
 
     except Exception as e:
         err = f"[agent error] {type(e).__name__}: {str(e)}"
