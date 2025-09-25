@@ -11,7 +11,7 @@ class ListFilesInput(BaseModel):
     path: str = Field(".", description="Directory path relative to project root")
 
 
-@tool("list_files", args_schema=ListFilesInput, return_direct=True)
+@tool("list_files", args_schema=ListFilesInput, return_direct=False)
 def list_files_tool(path: str = ".") -> List[str]:
     """List files and folders in a directory."""
     full_path = os.path.join(BASE_DIR, path)
@@ -27,7 +27,7 @@ class ReadFileInput(BaseModel):
     path: str = Field(..., description="File path relative to project root")
 
 
-@tool("read_file", args_schema=ReadFileInput, return_direct=True)
+@tool("read_file", args_schema=ReadFileInput, return_direct=False)
 def read_file_tool(path: str) -> str:
     """Read file content."""
     full_path = os.path.join(BASE_DIR, path)
@@ -45,7 +45,7 @@ class WriteFileInput(BaseModel):
     content: str = Field(..., description="Content to write")
 
 
-@tool("write_file", args_schema=WriteFileInput, return_direct=True)
+@tool("write_file", args_schema=WriteFileInput, return_direct=False)
 def write_file_tool(path: str, content: str) -> str:
     """Write content to a file (overwrite)."""
     full_path = os.path.join(BASE_DIR, path)
