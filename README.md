@@ -1,18 +1,21 @@
+# 🚧 **Work in Progress** – This project is under active development. Expect breaking changes and incomplete functionality.
+
 # 🧠 Simple Local AI Coding Assistant
 
 An offline AI coding assistant that runs **locally** and integrates directly into VSCode.  
-It uses a FastAPI backend with a local LLM (e.g., Qwen2.5 7B by default) and a custom VSCode extension to provide code explanations, refactoring suggestions, and other developer tools **without sending code to the cloud**.
+It uses a FastAPI backend with **LangGraph + Ollama** (Qwen2.5 7B by default) and a custom VSCode extension to provide code explanations, refactoring suggestions, and tool-augmented developer help — all **without sending code to the cloud**.
 
 ---
 
 ## ✨ Features
 
 - ⚡ **Runs locally** — keep your code private.
-- 📝 **Code selection processing** — highlight code(optional) and ask the AI anything.
-- 🔄 **Streaming responses** for real-time feedback.
-- 🧠 **Short-term memory** — remembers previous interactions in a session.
+- 📝 **Code selection processing** — highlight code (optional) and ask the AI.
+- 🔄 **Streaming responses** with LangGraph.
+- 🧠 **Memory** — per-session history stored in MongoDB.
+- 🛠 **Tool support** — the agent can call functions (list files, run commands, etc.).
 - 🖥 **VSCode integration** via a custom extension.
-- 🧩 Easily switch to different LLMs (CodeLlama, Qwen, etc.).
+- 🧩 Easily switch models (Qwen, CodeLlama, etc.).
 
 ---
 
@@ -21,24 +24,24 @@ It uses a FastAPI backend with a local LLM (e.g., Qwen2.5 7B by default) and a c
 ```
 project-root/
 │
-├── backend/                 # FastAPI server
-│   ├── main.py               # API endpoints for code processing
-│   ├── .env.example          # Example environment variables
+├── backend/                     # FastAPI + LangGraph server
+│   ├── main.py                  # API endpoints
+│   ├── agent_processor.py       # LangGraph agent (LLM + tools + memory)
+│   ├── tools/                   # Custom tool implementations
+│   ├── db.py                    # MongoDB helper for memory
 │   └── ...
 │
-├── extension/                # VSCode extension
+├── extension/                   # VSCode extension
 │   ├── src/
-│   │   ├── extension.ts      # Main extension activation code
-│   │   ├── apiClient.ts      # Connects to backend API
+│   │   ├── extension.ts         # Main extension activation
+│   │   ├── apiClient.ts         # Connects to backend API
 │   │   └── ...
 │   ├── package.json
-│   ├── tsconfig.json
-│   └── ...
+│   └── tsconfig.json
 │
-├── requirements.txt      # Python dependencies
+├── requirements.txt             # Python dependencies
 ├── .gitignore
-├── README.md
-└── LICENSE
+└── README.md
 ```
 
 ---
@@ -49,10 +52,10 @@ project-root/
 
 ```bash
 git clone https://github.com/NguyenHoangNhat-git/Coding-Agent.git
-cd Coding Agent
+cd Coding-Agent
 ```
 
----
+### 2️⃣ Setup Python Backend
 
 ```bash
 python -m venv .venv
@@ -60,22 +63,20 @@ source .venv/bin/activate    # On Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### 2️⃣ Setup the Backend
+#### Run MongoDB
 
-#### Run the backend
+```bash
+sudo systemctl start mongod
+```
+
+#### Run the FastAPI server
 
 ```bash
 cd backend
 uvicorn main:app --reload --port 8000
 ```
 
-Run the MongoDB
-
-```bash
-sudo systemctl start mongod
-```
-
-Your API will be available at `http://localhost:8000`.
+API is available at `http://localhost:8000`.
 
 ---
 
@@ -84,35 +85,29 @@ Your API will be available at `http://localhost:8000`.
 ```bash
 cd ../extension
 npm install
-# may have to run 'npm run watch' or 'npm run compile' if you modify sth
 ```
 
 #### Run in Development Mode
 
 1. Open the `extension` folder in VSCode.
 2. Press **F5** — this launches a new **Extension Development Host** window.
-3. In that new window, open any code file, select some code, press **Ctrl+Shift+P**, run `Simple Code Agent: Ask Agent` -> Edit the prompt.
+3. In that new window, open any file, select code, press **Ctrl+Shift+P**, run `Simple Code Agent: Ask Agent`, and edit your prompt.
 
 ---
 
 ## 🧠 Memory
 
-- This project now supports short-term memory for conversations.
+- Each VSCode session has a unique ID and its own history.
+- Conversation history is stored in MongoDB.
+- Memory resets if you restart the backend or use **Reset Session** from the extension.
 
-- Each VSCode window (extension session) has a unique session ID (`vscode.env.sessionId`) and maintains its own history of user prompts and AI responses.
-
-- The session memory is stored in RAM on the backend.
-
-- Memory resets when the backend restarts or when you explicitly reset a session with the **Reset Session** command in the extension.
-
---
+---
 
 ## ⚙️ Configuration
 
-You can change:
-
-- **Backend model** (e.g., CodeLlama, Qwen) in `backend/main.py`.
-- **Default prompt** in `extension/src/extension.ts`.
+- Change **default model** in `backend/agent_processor.py` (`ChatOllama(model="...")`).
+- Add or modify **tools** in `backend/tools/`.
+- Adjust **default system prompt** in `backend/agent_processor.py`.
 
 ---
 
@@ -121,4 +116,5 @@ You can change:
 - Python 3.9+
 - Node.js 18+
 - Ollama
+- MongoDB
 - VSCode
