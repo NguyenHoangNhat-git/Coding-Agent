@@ -46,7 +46,8 @@ IMPORTANT:
 
 # --- Model ---
 tools = [func for func in TOOLS.values()]
-llm = ChatOllama(model="llama3.2", temperature=0).bind_tools(tools)
+llm = ChatOllama(model="llama3.1:8b", temperature=0).bind_tools(tools)
+# tested for llama3.2,
 
 
 # --- Format tool descriptions for prompt ---
@@ -74,7 +75,6 @@ def agent_node(state: AgentState) -> AgentState:
         return {"messages": [AIMessage(content=err)]}
 
 
-
 # --- Conditional route after agent ---
 def route_after_agent(state: AgentState):
     messages = state["messages"]
@@ -85,7 +85,6 @@ def route_after_agent(state: AgentState):
     if isinstance(last, AIMessage) and last.tool_calls:
         return "tools"
     return "end"
-
 
 
 # --- Tool Node ---
