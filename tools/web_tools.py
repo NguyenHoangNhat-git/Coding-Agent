@@ -1,20 +1,29 @@
-import requests
+import requests, os
 from bs4 import BeautifulSoup
 from langchain.tools import tool
 from langchain_community.tools.ddg_search.tool import DuckDuckGoSearchResults
 
-# Use DuckDuckGo for quick web searches (no API key needed)
+SERPER_API_KEY = os.getenv("SERPER_API_KEY")
 
 
 @tool("web_search")
 def web_search(query: str, max_results: int = 5) -> str:
     """
-    Perform a web search using DuckDuckGo and return top results.
+    Google-like search using Serper.dev API.
     """
     try:
-        search = DuckDuckGoSearchResults(max_results=max_results)
-        results = search.run(query)
-        return results or "No results found."
+        url = "https://google.serper.dev/search"
+        payload = {"q": query, "num": max_results}
+        headers = {"X-API-KEY": SERPER_API_KEY, "Content-Type": "application/json"}
+
+        response = requests.post(url, json=payload, headers=headers)
+        data = response.json()
+
+        results = []
+        for item in data.get("organic", []):
+            results.append(f"- {item.get('title')} — {item.get('link')}")
+
+        return "\n".join(results) or "No results found."
     except Exception as e:
         return f"Search failed: {e}"
 
