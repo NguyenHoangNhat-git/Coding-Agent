@@ -92,13 +92,33 @@ async function resetSession(session_id) {
   }
   return await res.json();
 }
+async function requestAutocomplete(before, after, language = "python", max_tokens = 64, top_k = 1) {
+  const res = await fetch(`${BASE}/autocomplete`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      before,
+      after,
+      language,
+      max_tokens,
+      top_k
+    })
+  });
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(`Autocomplete error: ${res.status} ${txt}`);
+  }
+  const data = await res.json();
+  return data.completions || [];
+}
 
 // src/extension.ts
+var LANGUAGES = ["python", "javascript", "typescript", "c++", "c"];
 async function ensureSession() {
   try {
     const sid = await getCurrentSession();
     return sid;
-  } catch (err) {
+  } catch {
     const sid = await createSession("vscode-session", true);
     return sid;
   }
@@ -109,10 +129,48 @@ async function callAgent(instruction, code) {
   outputChannel.appendLine(`\u{1F9E0} Task: ${instruction}
 `);
   const sid = await ensureSession();
-  await streamCode(code || "", instruction, (chunk) => {
-    outputChannel.append(chunk);
-  }, sid);
+  try {
+    await streamCode(code || "", instruction, (chunk) => {
+      outputChannel.append(chunk);
+    }, sid);
+  } catch (err) {
+    vscode.window.showErrorMessage(`AI Assistant error: ${err.message}`);
+  }
 }
+var provider = vscode.languages.registerCompletionItemProvider(
+  LANGUAGES,
+  {
+    async provideCompletionItems(document, position) {
+      try {
+        const beforeRange = new vscode.Range(new vscode.Position(0, 0), position);
+        const before = document.getText(beforeRange);
+        const afterRange = new vscode.Range(
+          position,
+          document.positionAt(
+            Math.min(document.getText().length, document.offsetAt(position) + 3e3)
+          )
+        );
+        const after = document.getText(afterRange);
+        const completions = await requestAutocomplete(before, after, document.languageId, 64, 3);
+        if (!completions || completions.length === 0) return [];
+        return completions.map((text) => {
+          const item = new vscode.CompletionItem(text.split("\n")[0], vscode.CompletionItemKind.Snippet);
+          item.insertText = new vscode.SnippetString(text);
+          item.detail = "AI completion";
+          item.documentation = new vscode.MarkdownString("AI-powered completion (local)");
+          return item;
+        });
+      } catch (err) {
+        console.error("Autocomplete error:", err);
+        return [];
+      }
+    }
+  },
+  ".",
+  "(",
+  ","
+  // trigger chars 
+);
 function activate(context) {
   console.log('Extension "simple-code-agent" is active!');
   const askAIDisposable = vscode.commands.registerCommand("simple-code-agent.askAgent", async () => {
@@ -131,12 +189,11 @@ function activate(context) {
       const sid = await getCurrentSession();
       await resetSession(sid);
       vscode.window.showInformationMessage(`\u2705 AI Assistant memory cleared for session ${sid}`);
-    } catch (err) {
-      vscode.window.showInformationMessage("No current session to reset. Create a new session by asking the assistant.");
+    } catch {
+      vscode.window.showInformationMessage("No current session to reset. Ask the assistant first to create one.");
     }
   });
-  context.subscriptions.push(askAIDisposable);
-  context.subscriptions.push(resetDisposable);
+  context.subscriptions.push(askAIDisposable, resetDisposable, provider);
 }
 function deactivate() {
 }

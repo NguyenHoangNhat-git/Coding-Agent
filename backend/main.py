@@ -4,6 +4,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import Optional
 import uuid
+from autocomplete import router as autocomplete_router
 
 from agent_processor import stream_model
 from db import (
@@ -116,3 +117,5 @@ def reset_session_endpoint(request: ResetRequest):
 @app.get("/session/{session_id}")
 def get_session_endpoint(session_id: str):
     return {"session_id": session_id, "messages": get_messages(session_id=session_id)}
+
+app.include_router(autocomplete_router)

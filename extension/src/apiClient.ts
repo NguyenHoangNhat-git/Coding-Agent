@@ -35,14 +35,13 @@ export async function streamCode(
         const { done, value } = await reader.read();
         if (done) break;
         const chunk = decoder.decode(value, { stream: true });
-        onChunk(chunk);
+        onChunk(chunk); // stream each chunk to VSCode
     }
 }
 
 export async function getCurrentSession(): Promise<string> {
     const res = await fetch(`${BASE}/current-session`);
     if (!res.ok) {
-        // allow caller to handle 404 (no current session)
         const txt = await res.text();
         throw new Error(`getCurrentSession failed: ${res.status} ${txt}`);
     }
@@ -75,4 +74,30 @@ export async function resetSession(session_id: string): Promise<ResetResponse> {
         throw new Error(`resetSession failed: ${res.status} ${txt}`);
     }
     return (await res.json()) as ResetResponse;
+}
+
+export async function requestAutocomplete(
+  before: string,
+  after: string,
+  language: string = "python",
+  max_tokens: number = 64,
+  top_k: number = 1
+): Promise<string[]> {
+  const res = await fetch(`${BASE}/autocomplete`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      before,
+      after,
+      language,
+      max_tokens,
+      top_k,
+    }),
+  });
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(`Autocomplete error: ${res.status} ${txt}`);
+  }
+  const data = (await res.json()) as { completions: string[] };
+  return data.completions || [];
 }
