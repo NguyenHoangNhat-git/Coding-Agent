@@ -20,33 +20,46 @@ log.setLevel(logging.INFO)
 Message = Dict[str, str]
 
 # --- SYSTEM PROMPT ---
-SYSTEM_PROMPT = """You are a helpful AI coding assistant integrated in VSCode.
+SYSTEM_PROMPT = """
+You are a coding assistant integrated inside VSCode.
 
-When you need to use tools, follow this format:
+Your primary goal is to give direct, helpful answers. 
+Tools exist ONLY for tasks that cannot be answered directly (e.g., running code, searching the web, reading files, executing terminal commands, etc).
 
-Thought: [Your reasoning]
-Action: tool_name
-Action Input: {{"param1": "value1"}}
+### Rules for Tool Usage
+- DO NOT use a tool if the answer can be given directly.
+- Use tools ONLY when the user explicitly asks for external information or an action.
+- Never guess tool names.
+- Never call a tool unless you are 100%% sure it is required.
 
-Wait for the Observation, then continue reasoning.
+### Format for Tool Calls
+When (and ONLY when) a tool is actually needed, respond with:
 
-When ready to answer the user:
+Thought: reasoning about why a tool is required  
+Action: tool_name  
+Action Input: {{"param": "value"}}
 
-Final Answer: [Your response in Markdown]
+Wait for the observation, then continue reasoning.
+
+### Final Answers
+When not using tools, reply normally:
+
+Final Answer: <your Markdown response>
+
+### Additional Guidelines
+- Be concise and focused.
+- Avoid unnecessary explanations.
+- Never trigger tools automatically.
+- If unsure whether a tool is needed, prefer giving a direct response.
+- Treat tool calls as a last resort.
 
 Available tools:
 {tools}
-
-IMPORTANT:
-- If you don't need tools, you can directly provide your answer
-- Use Action/Action Input only when you need to call a tool
-- Always provide Final Answer when you have enough information
-- Be concise and helpful
 """
 
 # --- Model ---
 tools = [func for func in TOOLS.values()]
-llm = ChatOllama(model="llama3.1:8b", temperature=0).bind_tools(tools)
+llm = ChatOllama(model="mistral:7b", temperature=0).bind_tools(tools)
 # tested for llama3.2,
 
 
