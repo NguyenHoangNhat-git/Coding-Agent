@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from typing import Optional
 import uuid
 from autocomplete import router as autocomplete_router
+import requests
 
 from agent_processor import stream_model
 from db import (
@@ -17,7 +18,50 @@ from db import (
     list_sessions,
 )
 
+CHAT_MODEL = "mistral:7b"
+AUTO_MODEL = "qwen2.5-coder:1.5b"
+OLLAMA_API = "http://localhost:11434/api/generate"
+
 app = FastAPI()
+
+
+class ModelStateRequest(BaseModel):
+    feature: str  # "chat" or "autocomplete"
+    enable: bool
+
+
+@app.post("/manage-model")
+def manage_model(req: ModelStateRequest):
+    """
+    Tells Ollama to strictly load (keep_alive -1) or unload (keep_alive 0) a model.
+    """
+    model_name = CHAT_MODEL if req.feature == "chat" else AUTO_MODEL
+
+    # -1 = Keep loaded forever (ON)
+    # 0  = Unload immediately (OFF)
+    keep_alive = -1 if req.enable else 0
+
+    payload = {"model": model_name, "keep_alive": keep_alive}
+
+    try:
+        # If enabling, adding an empty prompt ensures the model actually loads into VRAM immediately.
+        if req.enable:
+            payload["prompt"] = ""
+
+        requests.post(OLLAMA_API, json=payload)
+
+        action = "🔥 Loaded" if req.enable else "❄️ Unloaded"
+        print(f"{action} {model_name} (keep_alive: {keep_alive})")
+
+    except Exception as e:
+        print(f"Failed to update model {model_name}: {e}")
+        return {"status": "error", "detail": str(e)}
+
+    return {
+        "status": "updated",
+        "model": model_name,
+        "state": "loaded" if req.enable else "unloaded",
+    }
 
 
 class CodeRequest(BaseModel):
@@ -117,5 +161,6 @@ def reset_session_endpoint(request: ResetRequest):
 @app.get("/session/{session_id}")
 def get_session_endpoint(session_id: str):
     return {"session_id": session_id, "messages": get_messages(session_id=session_id)}
+
 
 app.include_router(autocomplete_router)

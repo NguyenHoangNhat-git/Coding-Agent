@@ -1,17 +1,16 @@
-from fastapi import APIRouter, HTTPException, Request
+# autocomplete.py
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from typing import Optional, Generator
-import json
-import time
+from typing import Optional, List, Generator
+from langchain_ollama import ChatOllama
 
-# Import the shared llm from agent_processor.py to reuse the warm model
-try:
-    from agent_processor import llm
-except Exception:
-    # Fallback: create a quick client if agent_processor not importable.
-    from langchain_ollama import ChatOllama
+# --- CONFIGURATION ---
+# Use a small, fast model specifically for autocomplete.
+# Run: `ollama pull qwen2.5-coder:1.5b` (or 0.5b for extreme speed)
+AUTOCOMPLETE_MODEL = "qwen2.5-coder:1.5b"
 
-    llm = ChatOllama(model="qwen2.5-coder:7b", temperature=0)
+# Independent client - NO tools bound, LOW temperature
+llm_code = ChatOllama(model=AUTOCOMPLETE_MODEL, temperature=0.1)
 
 router = APIRouter()
 
@@ -20,90 +19,61 @@ class AutocompleteRequest(BaseModel):
     before: str
     after: Optional[str] = ""
     language: Optional[str] = "plain"
-    max_tokens: Optional[int] = 64
-    temperature: Optional[float] = 0.05
-    top_k: Optional[int] = 1  # number of suggestions to return
+    max_tokens: Optional[int] = 128
+    top_k: Optional[int] = 1
 
 
 @router.post("/autocomplete")
 async def autocomplete(req: AutocompleteRequest):
     """
-    Returns a small list of completion suggestions (non-streaming).
+    Fast code completion endpoint.
     """
     prompt = build_prompt(req.before, req.after, req.language)
+
     try:
-        # Use conservative decoding params for deterministic completions
-        # Using llm.invoke to return a message object (depends on provider)
-        result = llm.invoke(
+        # We don't use 'messages' here effectively because generic FIM
+        # works best as a raw string or simple prompt for these models.
+        # But ChatOllama requires messages.
+        response = llm_code.invoke(
             [
                 {
                     "role": "system",
-                    "content": "You are a code completion model. Produce concise code continuations only.",
+                    "content": f"You are a fast {req.language} code completion engine. Output ONLY code. No markdown.",
                 },
                 {"role": "user", "content": prompt},
             ]
         )
+
+        content = response.content
+
+        # Clean up common chat-model artifacts (markdown blocks)
+        cleaned = content.replace("```" + req.language, "").replace("```", "").strip()
+
+        return {"completions": [cleaned]}
+
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-    # result may be an AIMessage or similar; extract text robustly
-    try:
-        text = getattr(result, "content", None) or str(result)
-    except Exception:
-        text = str(result)
-
-    completions = postprocess_completions(text, req.top_k)
-    return {"completions": completions}
+        # Fail silently or gracefully for autocomplete
+        print(f"Autocomplete Error: {e}")
+        return {"completions": []}
 
 
 def build_prompt(before: str, after: str, language: str) -> str:
     """
-    Enhanced prompt for structural code completion.
-    Produces function bodies, class methods, etc.
+    Constructs a context-aware prompt.
+    Note: Real FIM models (like DeepSeek/Qwen) support specific tokens
+    <|fim_prefix|>, <|fim_suffix|>, <|fim_middle|>, but this generic structure
+    works well across most instruction-tuned coders.
     """
-    # Use larger window for function-level completions
-    snippet_before = before[-8000:]
-    snippet_after = (after or "")[:2000]
+    # Keep context short for speed
+    safe_before = before[-1000:]
+    safe_after = after[:500]
 
-    prompt = (
-        f"### Code language: {language}\n"
-        "You are a code completion model.\n"
-        "Continue the code at the cursor <CURSOR>.\n\n"
-        "Rules:\n"
-        "- ONLY output the code to be inserted.\n"
-        "- No explanations.\n"
-        "- No backticks.\n"
-        "- Continue logically using full indentation.\n"
-        "- If inside a function or class, generate the entire block.\n"
-        "- If the user typed a function signature, generate the full function body.\n"
-        '- If multiple suggestions are required, separate them with "\n\n".\n\n'
-        "### BEFORE\n"
-        f"{snippet_before}"
-        "\n<CURSOR>\n"
-        "### AFTER\n"
-        f"{snippet_after}\n\n"
-        "### COMPLETION:\n"
+    return (
+        f"### Context ({language}):\n"
+        f"{safe_before}<CURSOR>{safe_after}\n\n"
+        "### Instruction:\n"
+        "Fill in the code at <CURSOR>. Provide only the missing code block."
     )
-
-    return prompt
-
-
-def postprocess_completions(text: str, top_k: int):
-    """
-    Given model text, split into up to top_k suggestions and trim whitespace.
-    The model should ideally return single completion; we split by double-newline if multiple.
-    """
-    if not text:
-        return []
-
-    # Normalize and split
-    parts = [p.strip() for p in text.split("\n\n") if p.strip()]
-    if not parts:
-        parts = [text.strip()]
-
-    # Limit to top_k
-    parts = parts[: max(1, top_k)]
-    return parts
 
 
 @router.post("/stream-autocomplete")
@@ -114,18 +84,20 @@ def stream_autocomplete(request: AutocompleteRequest):
     """
     prompt = build_prompt(request.before, request.after or "", request.language)
     try:
-        stream = llm.stream(  # depends on provider; some llm clients provide .stream
-            model=getattr(llm, "model", None) or None,
-            messages=[
-                {"role": "system", "content": "You are a code completion model."},
-                {"role": "user", "content": prompt},
-            ],
-            stream=True,
+        stream = (
+            llm_code.stream(  # depends on provider; some llm clients provide .stream
+                model=getattr(llm_code, "model", None) or None,
+                messages=[
+                    {"role": "system", "content": "You are a code completion model."},
+                    {"role": "user", "content": prompt},
+                ],
+                stream=True,
+            )
         )
     except Exception:
         # Fallback: call non-streaming and yield result
         try:
-            res = llm.invoke(
+            res = llm_code.invoke(
                 [
                     {"role": "system", "content": "You are a code completion model."},
                     {"role": "user", "content": prompt},

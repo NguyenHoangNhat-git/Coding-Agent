@@ -21,45 +21,28 @@ Message = Dict[str, str]
 
 # --- SYSTEM PROMPT ---
 SYSTEM_PROMPT = """
-You are a coding assistant integrated inside VSCode.
+You are an advanced local Coding Assistant running inside VSCode. 
+You have access to the user's local file system and terminal.
 
-Your primary goal is to give direct, helpful answers. 
-Tools exist ONLY for tasks that cannot be answered directly (e.g., running code, searching the web, reading files, executing terminal commands, etc).
+### Goal
+Help the user write code, debug issues, and explore their repository efficiently.
 
-### Rules for Tool Usage
-- DO NOT use a tool if the answer can be given directly.
-- Use tools ONLY when the user explicitly asks for external information or an action.
-- Never guess tool names.
-- Never call a tool unless you are 100%% sure it is required.
-
-### Format for Tool Calls
-When (and ONLY when) a tool is actually needed, respond with:
-
-Thought: reasoning about why a tool is required  
-Action: tool_name  
-Action Input: {{"param": "value"}}
-
-Wait for the observation, then continue reasoning.
-
-### Final Answers
-When not using tools, reply normally:
-
-Final Answer: <your Markdown response>
-
-### Additional Guidelines
-- Be concise and focused.
-- Avoid unnecessary explanations.
-- Never trigger tools automatically.
-- If unsure whether a tool is needed, prefer giving a direct response.
-- Treat tool calls as a last resort.
-
-Available tools:
+### Available Tools
 {tools}
+
+### Rules
+1. **Directness:** If you can answer without a tool, do so immediately.
+2. **Verification:** Do not guess file paths. Use `list_directory` to check before reading.
+3. **Tool Usage:** Call tools directly when needed. Do not explain that you are going to use a tool. Just use it.
+4. **Safety:** Warn the user before running destructive terminal commands.
 """
 
+
 # --- Model ---
+CHAT_MODEL_NAME = "mistral:7b"
+
 tools = [func for func in TOOLS.values()]
-llm = ChatOllama(model="mistral:7b", temperature=0).bind_tools(tools)
+llm = ChatOllama(model=CHAT_MODEL_NAME, temperature=0).bind_tools(tools)
 # tested for llama3.2,
 
 
@@ -92,12 +75,12 @@ def agent_node(state: AgentState) -> AgentState:
 def route_after_agent(state: AgentState):
     messages = state["messages"]
     if not messages:
-        return "end"
+        return END
 
     last = messages[-1]
     if isinstance(last, AIMessage) and last.tool_calls:
         return "tools"
-    return "end"
+    return END
 
 
 # --- Tool Node ---
@@ -111,12 +94,20 @@ builder.add_node("tools", tool_node)
 
 builder.set_entry_point("agent")
 builder.add_edge(START, "agent")
-builder.add_conditional_edges(
-    "agent", route_after_agent, {"tools": "tools", "end": END}
-)
+builder.add_conditional_edges("agent", route_after_agent, {"tools": "tools", END: END})
 builder.add_edge("tools", "agent")
 
 agent = builder.compile()
+
+# Draw the graph of the agent
+if os.path.exists("agent_graph.png"):
+    png_bytes = agent.get_graph().draw_mermaid_png()
+    png_bytes
+    with open("agent_graph.png", "wb") as f:
+        f.write(png_bytes)
+    print("Agent graph created")
+else:
+    pass
 
 
 # --- Helpers ---
