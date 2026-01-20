@@ -1,4 +1,4 @@
-# 🚧 **Work in Progress** – This project is under active development. Expect breaking changes and incomplete functionality.
+# 🚧 **Work in Progress** – This project is under development
 
 # 🧠 Simple Local AI Coding Assistant
 
