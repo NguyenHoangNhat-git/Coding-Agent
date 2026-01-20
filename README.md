@@ -48,19 +48,25 @@ project-root/
 
 ## 🚀 Getting Started
 
-### 1️⃣ Clone the repo
+### Clone the repo
 
 ```bash
 git clone https://github.com/NguyenHoangNhat-git/Coding-Agent.git
 cd Coding-Agent
 ```
 
-### 2️⃣ Setup Python Backend
+### Setup dependencies
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate    # On Windows: .venv\Scripts\activate
 pip install -r requirements.txt
+```
+
+### Pull the models from ollama
+
+```bash
+ollama pull mistral:7b
 ```
 
 #### Run MongoDB
@@ -80,7 +86,7 @@ API is available at `http://localhost:8000`.
 
 ---
 
-### 3️⃣ Setup the VSCode Extension
+### Setup the VSCode Extension
 
 ```bash
 cd ../extension
@@ -91,8 +97,9 @@ npm install
 
 1. Open the `extension` folder in VSCode.
 2. Press **F5** — this launches a new **Extension Development Host** window.
-3. In that new window, open any file, select code, press **Ctrl+Shift+P**, run `Simple Code Agent: Ask Agent`, and edit your prompt.
-
+3. Agent commands:
+- In that new window, open any file, select code, press **Ctrl+Shift+P**, run `Simple Code Agent: Ask Agent`, and edit your prompt.
+- Or when your coding, press Ctrl + Space to use AutoComplete
 ---
 
 ## 🧠 Memory
@@ -105,7 +112,7 @@ npm install
 
 ## ⚙️ Configuration
 
-- Change **default model** in `backend/agent_processor.py` (`ChatOllama(model="...")`).
+- Change **default model** in `backend/agent_processor.py` (`CHAT_MODEL_NAME=..`).
 - Add or modify **tools** in `backend/tools/`.
 - Adjust **default system prompt** in `backend/agent_processor.py`.
 
