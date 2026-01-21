@@ -3,7 +3,7 @@
 # 🧠 Simple Local AI Coding Assistant
 
 An offline AI coding assistant that runs **locally** and integrates directly into VSCode.  
-It uses a FastAPI backend with **LangGraph + Ollama** (Qwen2.5 7B by default) and a custom VSCode extension to provide code explanations, refactoring suggestions, and tool-augmented developer help — all **without sending code to the cloud**.
+It uses a FastAPI backend with **LangGraph + Ollama** and a custom VSCode extension to provide code explanations, refactoring suggestions, and tool-augmented developer help — all **without sending code to the cloud**.
 
 ---
 
@@ -12,7 +12,7 @@ It uses a FastAPI backend with **LangGraph + Ollama** (Qwen2.5 7B by default) an
 - ⚡ **Runs locally** — keep your code private.
 - 📝 **Code selection processing** — highlight code (optional) and ask the AI.
 - 🔄 **Streaming responses** with LangGraph.
-- 🧠 **Memory** — per-session history stored in MongoDB.
+- 🧠 **Memory** — session history stored in MongoDB.
 - 🛠 **Tool support** — the agent can call functions (list files, run commands, etc.).
 - 🖥 **VSCode integration** via a custom extension.
 - 🧩 Easily switch models (Qwen, CodeLlama, etc.).
@@ -65,8 +65,11 @@ pip install -r requirements.txt
 
 ### Pull the models from ollama
 
+Pull mistral(for agent) and qwen(for autocomplete)
+
 ```bash
 ollama pull mistral:7b
+ollama pull qwen2.5-coder:1.5b
 ```
 
 #### Run MongoDB
@@ -93,26 +96,22 @@ cd ../extension
 npm install
 ```
 
-#### Run in Development Mode
+#### Run
 
 1. Open the `extension` folder in VSCode.
-2. Press **F5** — this launches a new **Extension Development Host** window.
-3. Agent commands:
-- In that new window, open any file, select code, press **Ctrl+Shift+P**, run `Simple Code Agent: Ask Agent`, and edit your prompt.
-- Or when your coding, press Ctrl + Space to use AutoComplete
----
+2. Press **F5** -> launch a new **Extension Development Host** window.
+3. Press **Ctrl+Shift+P** to search for commands
+4. Agent commands:
 
-## 🧠 Memory
-
-- Each VSCode session has a unique ID and its own history.
-- Conversation history is stored in MongoDB.
-- Memory resets if you restart the backend or use **Reset Session** from the extension.
+- Select a piece of code and run `Simple Code Agent: Ask Agent` to ask for explanation or just general questions.
+- Run `Simple code agent: Toggle settings` to to turn on/off chat and/or autocomplete model.
+- Run `Simple code agent: Reset session` to clear the memory
 
 ---
 
 ## ⚙️ Configuration
 
-- Change **default model** in `backend/agent_processor.py` (`CHAT_MODEL_NAME=..`).
+- Change **default models** in `backend/models_manager.py`.
 - Add or modify **tools** in `backend/tools/`.
 - Adjust **default system prompt** in `backend/agent_processor.py`.
 
