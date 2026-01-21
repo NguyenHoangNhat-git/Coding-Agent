@@ -18,8 +18,16 @@ from db import (
     list_sessions,
 )
 
-CHAT_MODEL = "mistral:7b"
-AUTO_MODEL = "qwen2.5-coder:1.5b"
+from models_manager import (
+    set_chat_enabled,
+    set_autocomplete_enabled,
+    is_chat_enabled,
+    is_autocomplete_enabled,
+    initialize_models,
+    CHAT_MODEL,
+    AUTO_MODEL
+)
+
 OLLAMA_API = "http://localhost:11434/api/generate"
 
 app = FastAPI()
@@ -33,22 +41,28 @@ class ModelStateRequest(BaseModel):
 @app.post("/manage-model")
 def manage_model(req: ModelStateRequest):
     """
-    Tells Ollama to strictly load (keep_alive -1) or unload (keep_alive 0) a model.
+    Enable/disable models and tell Ollama to load/unload them.
     """
     model_name = CHAT_MODEL if req.feature == "chat" else AUTO_MODEL
 
-    # -1 = Keep loaded forever (ON)
-    # 0  = Unload immediately (OFF)
+    # Update internal state FIRST
+    if req.feature == "chat":
+        set_chat_enabled(req.enable)
+    elif req.feature == "autocomplete":
+        set_autocomplete_enabled(req.enable)
+    else:
+        return {"status": "error", "detail": f"Unknown feature: {req.feature}"}
+    
+
     keep_alive = -1 if req.enable else 0
 
     payload = {"model": model_name, "keep_alive": keep_alive}
 
     try:
-        # If enabling, adding an empty prompt ensures the model actually loads into VRAM immediately.
         if req.enable:
-            payload["prompt"] = ""
+            payload["prompt"] = "" # Force load into VRAM
 
-        requests.post(OLLAMA_API, json=payload)
+        response = requests.post(OLLAMA_API, json=payload, timeout=10)
 
         action = "🔥 Loaded" if req.enable else "❄️ Unloaded"
         print(f"{action} {model_name} (keep_alive: {keep_alive})")
@@ -58,9 +72,11 @@ def manage_model(req: ModelStateRequest):
         return {"status": "error", "detail": str(e)}
 
     return {
-        "status": "updated",
+        "status": "success",
         "model": model_name,
-        "state": "loaded" if req.enable else "unloaded",
+        "feature": req.feature,
+        "enabled": req.enable,
+        "ollama_state": "loaded" if req.enable else "unloaded"
     }
 
 
@@ -72,8 +88,16 @@ class CodeRequest(BaseModel):
 
 @app.post("/stream-code")
 def stream_code(request: CodeRequest):
+
+    if not is_chat_enabled():
+        raise HTTPException(
+            status_code=503, 
+            detail="Chat assistant is currently disabled. Enable it in VSCode settings."
+        )
+
     if not request.session_id:
         raise HTTPException(status_code=400, detail="session_id is required.")
+    
     sid = request.session_id
     if not session_exists(sid):
         raise HTTPException(status_code=404, detail="session not found")

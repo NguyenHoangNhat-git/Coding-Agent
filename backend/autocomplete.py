@@ -3,14 +3,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional, List, Generator
 from langchain_ollama import ChatOllama
-
-# --- CONFIGURATION ---
-# Use a small, fast model specifically for autocomplete.
-# Run: `ollama pull qwen2.5-coder:1.5b` (or 0.5b for extreme speed)
-AUTOCOMPLETE_MODEL = "qwen2.5-coder:1.5b"
-
-# Independent client - NO tools bound, LOW temperature
-llm_code = ChatOllama(model=AUTOCOMPLETE_MODEL, temperature=0.1)
+from models_manager import get_autocomplete_model, is_autocomplete_enabled
 
 router = APIRouter()
 
@@ -28,12 +21,17 @@ async def autocomplete(req: AutocompleteRequest):
     """
     Fast code completion endpoint.
     """
+
+    if not is_autocomplete_enabled():
+        return {"completions": []} 
+    
+    llm_code = get_autocomplete_model()
+    if llm_code is None:
+        return {"completions": []}
+
     prompt = build_prompt(req.before, req.after, req.language)
 
     try:
-        # We don't use 'messages' here effectively because generic FIM
-        # works best as a raw string or simple prompt for these models.
-        # But ChatOllama requires messages.
         response = llm_code.invoke(
             [
                 {
@@ -52,7 +50,6 @@ async def autocomplete(req: AutocompleteRequest):
         return {"completions": [cleaned]}
 
     except Exception as e:
-        # Fail silently or gracefully for autocomplete
         print(f"Autocomplete Error: {e}")
         return {"completions": []}
 
@@ -60,9 +57,6 @@ async def autocomplete(req: AutocompleteRequest):
 def build_prompt(before: str, after: str, language: str) -> str:
     """
     Constructs a context-aware prompt.
-    Note: Real FIM models (like DeepSeek/Qwen) support specific tokens
-    <|fim_prefix|>, <|fim_suffix|>, <|fim_middle|>, but this generic structure
-    works well across most instruction-tuned coders.
     """
     # Keep context short for speed
     safe_before = before[-1000:]
@@ -80,7 +74,6 @@ def build_prompt(before: str, after: str, language: str) -> str:
 def stream_autocomplete(request: AutocompleteRequest):
     """
     Streaming autocomplete endpoint (text/plain). Yields the completion as it arrives.
-    Useful for inline ghost text streaming.
     """
     prompt = build_prompt(request.before, request.after or "", request.language)
     try:
@@ -118,7 +111,7 @@ def stream_autocomplete(request: AutocompleteRequest):
 
     def generator() -> Generator[str, None, None]:
         for chunk in stream:
-            # chunk might be dicts / messages depending on provider; try to extract
+            # chunk could be dicts / messages depending on provider; try to extract
             try:
                 if isinstance(chunk, dict):
                     msg = chunk.get("message") or chunk.get("content") or chunk

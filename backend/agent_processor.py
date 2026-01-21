@@ -7,11 +7,13 @@ from langgraph.prebuilt import ToolNode
 from langgraph.graph.message import add_messages
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage
 from langchain_ollama import ChatOllama
+from db import append_messages
+
+from models_manager import get_chat_model, is_chat_enabled
 
 # Local imports
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from tools import TOOLS
-from db import append_messages
 
 # Logging setup
 log = logging.getLogger("agent_processor")
@@ -38,12 +40,7 @@ Help the user write code, debug issues, and explore their repository efficiently
 """
 
 
-# --- Model ---
-CHAT_MODEL_NAME = "mistral:7b"
-
 tools = [func for func in TOOLS.values()]
-llm = ChatOllama(model=CHAT_MODEL_NAME, temperature=0).bind_tools(tools)
-# tested for llama3.2,
 
 
 # --- Format tool descriptions for prompt ---
@@ -61,9 +58,20 @@ class AgentState(TypedDict):
 # --- Agent Node ---
 def agent_node(state: AgentState) -> AgentState:
     messages = state["messages"]
+
+    llm = get_chat_model()
+
+    if llm is None:
+        error_msg = (
+            "Chat assistant is currently disabled. Please enable it in VSCode settings."
+        )
+        log.warning(error_msg)
+        return {"messages": [AIMessage(content=f"❌ {error_msg}")]}
+
     try:
-        response = llm.invoke(messages)
-        # return the full model message object (don't reconstruct)
+        llm_with_tools = llm.bind_tools(tools)
+        response = llm_with_tools.invoke(messages)
+
         return {"messages": [response]}
     except Exception as e:
         err = f"[Agent error] {type(e).__name__}: {e}"
@@ -78,8 +86,11 @@ def route_after_agent(state: AgentState):
         return END
 
     last = messages[-1]
+    # Check if last message has tool calls
     if isinstance(last, AIMessage) and last.tool_calls:
+        log.info(f"Routing to tools: {[tc.get('name') for tc in last.tool_calls]}")
         return "tools"
+
     return END
 
 
@@ -100,14 +111,14 @@ builder.add_edge("tools", "agent")
 agent = builder.compile()
 
 # Draw the graph of the agent
-if os.path.exists("agent_graph.png"):
-    png_bytes = agent.get_graph().draw_mermaid_png()
-    png_bytes
-    with open("agent_graph.png", "wb") as f:
-        f.write(png_bytes)
-    print("Agent graph created")
-else:
-    pass
+try:
+    if not os.path.exists("agent_graph.png"):
+        png_bytes = agent.get_graph().draw_mermaid_png()
+        with open("agent_graph.png", "wb") as f:
+            f.write(png_bytes)
+        log.info("Agent graph created: agent_graph.png")
+except Exception as e:
+    log.warning(f"Could not create graph visualization: {e}")
 
 
 # --- Helpers ---
@@ -123,6 +134,7 @@ def extract_text_from_msg(msg: BaseMessage) -> str:
 
 
 def build_message_history(memory: List[Message]) -> List[BaseMessage]:
+    """Convert memory dict format to LangChain message objects."""
     messages = []
     for m in memory:
         role, content = m.get("role", "user"), m.get("content", "")
@@ -139,7 +151,18 @@ def build_message_history(memory: List[Message]) -> List[BaseMessage]:
 def stream_model(
     code: str, instruction: str, memory: List[Message], session_id: str
 ) -> Generator[str, None, None]:
-    """Stream agent responses and tool outputs."""
+    """
+    Stream agent responses and tool outputs.
+    Checks if chat is enabled before processing.
+    """
+
+    if not is_chat_enabled():
+        error_msg = "❌ Chat assistant is currently disabled. Please enable it in VSCode settings."
+        log.warning("Attempted to use chat while disabled")
+        yield error_msg
+        append_messages(session_id, "assistant", error_msg)
+        return
+
     system_prompt = SYSTEM_PROMPT.format(tools=format_tools_description())
     messages_input = [SystemMessage(content=system_prompt)]
     messages_input.extend(build_message_history(memory))
@@ -162,14 +185,21 @@ def stream_model(
                 continue
 
             # Stream assistant replies
-            if node == "agent":
-                yield text
-                full_response += text
+            if node == "agent" and isinstance(msg, AIMessage):
+                # Don't stream tool call declarations, only actual content
+                if not msg.tool_calls:
+                    yield text
+                    full_response += text
+                else:
+                    log.info(
+                        f"Agent calling tools: {[tc.get('name') for tc in msg.tool_calls]}"
+                    )
 
             # Stream tool outputs inline
             elif node == "tools":
-                yield f"\n[Tool output]: {text}\n"
-                append_messages(session_id, "assistant", f"[Tool output]: {text}")
+                tool_output = f"\n [Tool output]: {text}\n"
+                yield tool_output
+                append_messages(session_id, "assistant", tool_output)
 
     except Exception as e:
         err = f"[Agent error] {type(e).__name__}: {e}"
@@ -179,3 +209,5 @@ def stream_model(
 
     if full_response.strip():
         append_messages(session_id, "assistant", full_response)
+    else:
+        log.warning("No response content was generated")

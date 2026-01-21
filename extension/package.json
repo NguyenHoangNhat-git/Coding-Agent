@@ -9,7 +9,7 @@
   "categories": [
     "Other"
   ],
-  "activationEvents": [],
+  "activationEvents": ["onStartupFinished"],
   "main": "./dist/extension.js",
   "contributes": {
     "commands": [
@@ -20,8 +20,27 @@
       {
         "command": "simple-code-agent.resetSession",
         "title": "Simple code agent: Reset session"
+      },
+      {
+        "command": "simple-code-agent.toggleSettings",
+        "title": "Simple code agent: Toggle settings"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "Local AI Assistant",
+      "properties": {
+        "localAI.enableChat": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable the Chat Assistant (Agent)."
+        },
+        "localAI.enableAutocomplete": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable Text Autocomplete."
+        }
+      }
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run package",

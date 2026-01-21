@@ -9,6 +9,15 @@ interface ResetResponse {
     session_id: string;
 }
 
+interface ModelStateResponse {
+    status: string;
+    model: string;
+    feature: string;
+    enabled: boolean;
+    ollama_state?: string;
+}
+
+
 export async function streamCode(
     code: string,
     instruction: string,
@@ -23,6 +32,11 @@ export async function streamCode(
 
     if (!response.ok) {
         const txt = await response.text();
+
+        if (response.status === 503) {
+            throw new Error("Chat assistant is currently disabled. Please enable it in settings.");
+        }
+
         throw new Error(`streamCode error: ${response.status} ${txt}`);
     }
 
@@ -31,11 +45,16 @@ export async function streamCode(
     const reader = response.body.getReader();
     const decoder = new TextDecoder("utf-8");
 
-    while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        const chunk = decoder.decode(value, { stream: true });
-        onChunk(chunk); // stream each chunk to VSCode
+    try{
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            const chunk = decoder.decode(value, { stream: true });
+            onChunk(chunk); // stream each chunk to VSCode
+        }
+    } catch(error){
+        reader.cancel()
+        throw error
     }
 }
 
@@ -55,10 +74,12 @@ export async function createSession(name?: string, makeCurrent: boolean = false)
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, make_current: makeCurrent }),
     });
+    
     if (!res.ok) {
         const txt = await res.text();
         throw new Error(`createSession failed: ${res.status} ${txt}`);
     }
+
     const data = (await res.json()) as SessionResponse;
     return data.session_id;
 }
@@ -95,9 +116,46 @@ export async function requestAutocomplete(
     }),
   });
   if (!res.ok) {
-    const txt = await res.text();
-    throw new Error(`Autocomplete error: ${res.status} ${txt}`);
+    console.warn(`Autocomplete request failed: ${res.status}`);
+    return [];
   }
   const data = (await res.json()) as { completions: string[] };
   return data.completions || [];
+}
+
+
+export async function setModelState(feature: "chat" | "autocomplete", enable: boolean) {
+    try {
+        const res = await fetch(`${BASE}/manage-model`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ feature, enable }),
+        });
+
+        if (!res.ok) {
+            const txt = await res.text();
+            console.error(`Failed to set model state for ${feature}:`, txt);
+            return null;
+        }
+
+        const data = (await res.json()) as ModelStateResponse;
+        console.log(`Model state updated: ${feature} = ${enable ? "ON" : "OFF"}`);
+        return data;
+
+    } catch (err) {
+        console.error(`Failed to toggle model state for ${feature}:`, err);
+        return null;
+    }
+}
+
+
+export async function checkBackendHealth(): Promise<boolean> {
+    try {
+        const res = await fetch(`${BASE}/sessions`, {
+            method: "GET",
+        });
+        return res.ok;
+    } catch {
+        return false;
+    }
 }
