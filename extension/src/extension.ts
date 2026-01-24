@@ -27,6 +27,19 @@ function updateStatusBar() {
     statusBarItem.show();
 }
 
+function removePrefix(completion: string, before: string): string {
+    // Get last 200 chars of what user typed
+    const suffix = before.slice(-200);
+    
+    // If completion starts with any part of it, remove that part
+    for (let i = 0; i < suffix.length; i++) {
+        if (completion.startsWith(suffix.slice(i))) {
+            return completion.slice(suffix.length - i);
+        }
+    }
+    return completion;
+}
+
 async function syncModelStates() {
     // Call this whenever settings change.
     
@@ -83,7 +96,8 @@ class AIInlineCompletionProvider implements vscode.InlineCompletionItemProvider 
             if (token.isCancellationRequested) return [];
 
             const text = completions[0];
-            const cleanText = text.replace(/^```\w*\n?/, "").replace(/\n?```$/, "");
+            let cleanText = text.replace(/^```\w*\n?/, "").replace(/\n?```$/, "");
+            cleanText = removePrefix(cleanText, before);  
 
             return [
                 new vscode.InlineCompletionItem(

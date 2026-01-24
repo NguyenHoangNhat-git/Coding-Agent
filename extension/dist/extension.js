@@ -162,6 +162,15 @@ function updateStatusBar() {
   }
   statusBarItem.show();
 }
+function removePrefix(completion, before) {
+  const suffix = before.slice(-200);
+  for (let i = 0; i < suffix.length; i++) {
+    if (completion.startsWith(suffix.slice(i))) {
+      return completion.slice(suffix.length - i);
+    }
+  }
+  return completion;
+}
 async function syncModelStates() {
   const config = vscode.workspace.getConfiguration("localAI");
   const chatOn = config.get("enableChat", false);
@@ -197,7 +206,8 @@ var AIInlineCompletionProvider = class {
       if (!completions || completions.length === 0) return [];
       if (token.isCancellationRequested) return [];
       const text = completions[0];
-      const cleanText = text.replace(/^```\w*\n?/, "").replace(/\n?```$/, "");
+      let cleanText = text.replace(/^```\w*\n?/, "").replace(/\n?```$/, "");
+      cleanText = removePrefix(cleanText, before);
       return [
         new vscode.InlineCompletionItem(
           cleanText,
