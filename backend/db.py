@@ -2,9 +2,10 @@ from pymongo import MongoClient, ASCENDING
 from datetime import datetime
 from typing import List, Dict, Optional
 import uuid
+import os 
 
-# Configure connection
-MONGO_URL = "mongodb://127.0.0.1:27017"
+MONGO_URL = os.getenv("MONGODB_URL", "mongodb://127.0.0.1:27017")
+
 client = MongoClient(MONGO_URL)
 db = client["ai_assistant"]
 sessions_col = db["sessions"]
@@ -128,3 +129,11 @@ def list_sessions(limit: int = 100) -> List[Dict]:
         .limit(limit)
     )
     return list(docs)
+
+
+# Test connection on import
+try:
+    client.admin.command('ping')
+    print(f"✅ Connected to MongoDB at {MONGO_URL}")
+except Exception as e:
+    print(f"❌ Failed to connect to MongoDB: {e}")

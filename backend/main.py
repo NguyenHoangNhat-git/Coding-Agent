@@ -1,13 +1,12 @@
-# main.py
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import Optional
-import uuid
+import uuid, os
 from autocomplete import router as autocomplete_router
 import requests
-
 from agent_processor import stream_model
+
 from db import (
     get_messages,
     clear_messages,
@@ -25,13 +24,17 @@ from models_manager import (
     is_autocomplete_enabled,
     initialize_models,
     CHAT_MODEL,
-    AUTO_MODEL
+    AUTO_MODEL,
 )
 
-OLLAMA_API = "http://localhost:11434/api/generate"
+OLLAMA_API = os.getenv("OLLAMA_API", "http://localhost:11434/api/generate")
 
 app = FastAPI()
 
+@app.on_event("startup")
+async def startup_event():
+    """Initialize models on startup"""
+    initialize_models(chat_enabled=False, auto_enabled=True)
 
 class ModelStateRequest(BaseModel):
     feature: str  # "chat" or "autocomplete"
@@ -52,7 +55,6 @@ def manage_model(req: ModelStateRequest):
         set_autocomplete_enabled(req.enable)
     else:
         return {"status": "error", "detail": f"Unknown feature: {req.feature}"}
-    
 
     keep_alive = -1 if req.enable else 0
 
@@ -60,7 +62,7 @@ def manage_model(req: ModelStateRequest):
 
     try:
         if req.enable:
-            payload["prompt"] = "" # Force load into VRAM
+            payload["prompt"] = ""  # Force load into VRAM
 
         response = requests.post(OLLAMA_API, json=payload, timeout=10)
 
@@ -76,7 +78,7 @@ def manage_model(req: ModelStateRequest):
         "model": model_name,
         "feature": req.feature,
         "enabled": req.enable,
-        "ollama_state": "loaded" if req.enable else "unloaded"
+        "ollama_state": "loaded" if req.enable else "unloaded",
     }
 
 
@@ -91,13 +93,13 @@ def stream_code(request: CodeRequest):
 
     if not is_chat_enabled():
         raise HTTPException(
-            status_code=503, 
-            detail="Chat assistant is currently disabled. Enable it in VSCode settings."
+            status_code=503,
+            detail="Chat assistant is currently disabled. Enable it in VSCode settings.",
         )
 
     if not request.session_id:
         raise HTTPException(status_code=400, detail="session_id is required.")
-    
+
     sid = request.session_id
     if not session_exists(sid):
         raise HTTPException(status_code=404, detail="session not found")

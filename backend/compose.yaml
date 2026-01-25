@@ -1,0 +1,41 @@
+services:
+  server:
+    build:
+      context: ..
+      dockerfile: backend/Dockerfile
+    ports:
+      - 8000:8000
+    environment:
+      - MONGODB_URL=mongodb://mongodb:27017
+      # Ollama API (host.docker.internal allows container to access host)
+      - OLLAMA_API=http://host.docker.internal:11434/api/generate
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: unless-stopped
+  mongodb:
+    image: mongo:8.0.17
+    container_name: vscode-ai-mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb-data:/data/db
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: "10s"
+      timeout: "5s"
+      retries: 5
+      start_period: "10s"
+    restart: unless-stopped
+  
+volumes:
+  mongodb-data:
+    driver: local
+  
+networks:
+  app-network:
+    driver: bridge

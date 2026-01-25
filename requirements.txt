@@ -1,7 +1,12 @@
 fastapi
 pymongo
 uvicorn
-ollama
+
 langchain
 langchain-community
+langchain-core
+langchain-ollama
 langgraph
+
+requests
+pydantic

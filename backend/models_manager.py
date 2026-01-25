@@ -4,7 +4,6 @@ import logging
 
 log = logging.getLogger("model_manager")
 
-# Model names
 CHAT_MODEL = "mistral:7b"
 AUTO_MODEL = "qwen2.5-coder:1.5b"
 
