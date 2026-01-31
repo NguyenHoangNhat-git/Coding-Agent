@@ -31,10 +31,12 @@ OLLAMA_API = os.getenv("OLLAMA_API", "http://localhost:11434/api/generate")
 
 app = FastAPI()
 
+
 @app.on_event("startup")
 async def startup_event():
     """Initialize models on startup"""
     initialize_models(chat_enabled=False, auto_enabled=True)
+
 
 class ModelStateRequest(BaseModel):
     feature: str  # "chat" or "autocomplete"

@@ -244,7 +244,7 @@ async function callAgent(instruction, code) {
   }
   const outputChannel = vscode.window.createOutputChannel("AI Assistant");
   outputChannel.show(true);
-  outputChannel.appendLine(`\u{1F9E0} Task: ${instruction}
+  outputChannel.appendLine(`Task: ${instruction}
 `);
   const sid = await ensureSession();
   try {
@@ -271,6 +271,12 @@ function activate(context) {
   const config = vscode.workspace.getConfiguration("localAI");
   previousChatState = config.get("enableChat", false);
   previousAutoState = config.get("enableAutocomplete", false);
+  setModelState("chat", previousChatState).catch(
+    (err) => console.error("Failed to sync chat state:", err)
+  );
+  setModelState("autocomplete", previousAutoState).catch(
+    (err) => console.error("Failed to sync autocomplete state:", err)
+  );
   const askAIDisposable = vscode.commands.registerCommand("simple-code-agent.askAgent", async () => {
     const editor = vscode.window.activeTextEditor;
     let code = "";
@@ -286,7 +292,7 @@ function activate(context) {
     try {
       const sid = await getCurrentSession();
       await resetSession(sid);
-      vscode.window.showInformationMessage(`\u2705 AI Assistant memory cleared for session ${sid}`);
+      vscode.window.showInformationMessage(`AI Assistant memory cleared for session ${sid}`);
     } catch {
       vscode.window.showInformationMessage("No current session to reset. Ask the assistant first to create one.");
     }
@@ -322,8 +328,8 @@ function activate(context) {
       cancellable: false
     }, async (progress) => {
       progress.report({ increment: 0, message: "Updating settings..." });
-      await config2.update("enableChat", newChatState, vscode.ConfigurationTarget.Global);
-      await config2.update("enableAutocomplete", newAutoState, vscode.ConfigurationTarget.Global);
+      await config2.update("enableChat", newChatState, vscode.ConfigurationTarget.Workspace);
+      await config2.update("enableAutocomplete", newAutoState, vscode.ConfigurationTarget.Workspace);
       progress.report({ increment: 50, message: "Syncing with backend..." });
       await setModelState("chat", newChatState);
       await setModelState("autocomplete", newAutoState);
@@ -331,12 +337,12 @@ function activate(context) {
       previousAutoState = newAutoState;
       progress.report({ increment: 100, message: "Done!" });
       updateStatusBar();
-      const chatStatus = newChatState ? "ON \u2713" : "OFF";
-      const autoStatus = newAutoState ? "ON \u2713" : "OFF";
-      vscode.window.showInformationMessage(
-        `AI Updated: Chat ${chatStatus}, Autocomplete ${autoStatus}`
-      );
     });
+    const chatStatus = newChatState ? "ON \u2713" : "OFF";
+    const autoStatus = newAutoState ? "ON \u2713" : "OFF";
+    vscode.window.showInformationMessage(
+      `AI Updated: Chat ${chatStatus}, Autocomplete ${autoStatus}`
+    );
   });
   statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
   statusBarItem.command = "simple-code-agent.toggleSettings";
@@ -355,10 +361,23 @@ function activate(context) {
     new AIInlineCompletionProvider()
   );
   context.subscriptions.push(askAIDisposable, resetDisposable, toggleDisposable, inlineProvider);
-  console.log("\u2705 AI Assistant extension fully activated");
+  console.log("AI Assistant extension fully activated");
 }
 function deactivate() {
-  console.log("AI Assistant extension deactivated");
+  const config = vscode.workspace.getConfiguration("localAI");
+  const chatEnabled = config.get("enableChat", false);
+  const autoEnabled = config.get("enableAutocomplete", false);
+  if (chatEnabled) {
+    setModelState("chat", false).catch(
+      (err) => console.error("Failed to unload chat model:", err)
+    );
+  }
+  if (autoEnabled) {
+    setModelState("autocomplete", false).catch(
+      (err) => console.error("Failed to unload autocomplete model:", err)
+    );
+  }
+  console.log("AI Assistant extension deactivated. All models have been unloaded");
 }
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {

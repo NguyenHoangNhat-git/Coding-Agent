@@ -1,4 +1,4 @@
-import os, sys, logging
+import os, logging
 from typing import Generator, List, Dict, Sequence
 from typing_extensions import TypedDict, Annotated
 
@@ -6,13 +6,9 @@ from langgraph.graph import StateGraph, START, END
 from langgraph.prebuilt import ToolNode
 from langgraph.graph.message import add_messages
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage
-from langchain_ollama import ChatOllama
 from db import append_messages
 
 from models_manager import get_chat_model, is_chat_enabled
-
-# Local imports
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from tools import TOOLS
 
 # Logging setup

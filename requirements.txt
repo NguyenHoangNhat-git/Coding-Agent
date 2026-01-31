@@ -10,3 +10,4 @@ langgraph
 
 requests
 pydantic
+beautifulsoup4

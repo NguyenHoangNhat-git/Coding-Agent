@@ -1,5 +1,5 @@
 backend/__pycache__
-tools/__pycache__/
+backend/tools/__pycache__/
 
 package-lock.json
 

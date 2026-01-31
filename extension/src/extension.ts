@@ -41,7 +41,7 @@ function removePrefix(completion: string, before: string): string {
 }
 
 async function syncModelStates() {
-    // Call this whenever settings change.
+    // Sync VSCode settings with backend model states.
     
     const config = vscode.workspace.getConfiguration("localAI");
     const chatOn = config.get<boolean>("enableChat", false);
@@ -139,7 +139,7 @@ async function callAgent(instruction: string, code?: string) {
     
     const outputChannel = vscode.window.createOutputChannel("AI Assistant");
     outputChannel.show(true);
-    outputChannel.appendLine(`🧠 Task: ${instruction}\n`);
+    outputChannel.appendLine(`Task: ${instruction}\n`);
 
     const sid = await ensureSession();
 
@@ -165,12 +165,19 @@ async function callAgent(instruction: string, code?: string) {
 
 export function activate(context: vscode.ExtensionContext) {
     console.log('Extension "simple-code-agent" is active!');
-
+    
     // Initialize previous states
     const config = vscode.workspace.getConfiguration("localAI");
     previousChatState = config.get<boolean>("enableChat", false);
     previousAutoState = config.get<boolean>("enableAutocomplete", false);
 
+    // sync with backend
+    setModelState("chat", previousChatState).catch(err => 
+        console.error("Failed to sync chat state:", err)
+    );
+    setModelState("autocomplete", previousAutoState).catch(err => 
+        console.error("Failed to sync autocomplete state:", err)
+    );
 
     // 1. Commands 
     const askAIDisposable = vscode.commands.registerCommand("simple-code-agent.askAgent", async () => {
@@ -191,7 +198,7 @@ export function activate(context: vscode.ExtensionContext) {
         try {
             const sid = await getCurrentSession(); 
             await resetSession(sid);
-            vscode.window.showInformationMessage(`✅ AI Assistant memory cleared for session ${sid}`);
+            vscode.window.showInformationMessage(`AI Assistant memory cleared for session ${sid}`);
         } catch {
             vscode.window.showInformationMessage("No current session to reset. Ask the assistant first to create one.");
         }
@@ -202,7 +209,6 @@ export function activate(context: vscode.ExtensionContext) {
         const config = vscode.workspace.getConfiguration("localAI");
         const currentChat = config.get<boolean>("enableChat");
         const currentAuto = config.get<boolean>("enableAutocomplete");
-
         const items = [
             { 
                 label: `${currentChat ? "$(check)" : "$(circle-slash)"} Enable Chat Assistant`, 
@@ -237,8 +243,8 @@ export function activate(context: vscode.ExtensionContext) {
             progress.report({ increment: 0, message: "Updating settings..." });
 
             // 1. Update Settings
-            await config.update("enableChat", newChatState, vscode.ConfigurationTarget.Global);
-            await config.update("enableAutocomplete", newAutoState, vscode.ConfigurationTarget.Global);
+            await config.update("enableChat", newChatState, vscode.ConfigurationTarget.Workspace);
+            await config.update("enableAutocomplete", newAutoState, vscode.ConfigurationTarget.Workspace);
             
             progress.report({ increment: 50, message: "Syncing with backend..." });
 
@@ -254,14 +260,13 @@ export function activate(context: vscode.ExtensionContext) {
 
             // 4. Update UI
             updateStatusBar();
-
-            // Show result
-            const chatStatus = newChatState ? "ON ✓" : "OFF";
-            const autoStatus = newAutoState ? "ON ✓" : "OFF";
-            vscode.window.showInformationMessage(
-                `AI Updated: Chat ${chatStatus}, Autocomplete ${autoStatus}`
-            );
         });
+        // Show result
+        const chatStatus = newChatState ? "ON ✓" : "OFF";
+        const autoStatus = newAutoState ? "ON ✓" : "OFF";
+        vscode.window.showInformationMessage(
+            `AI Updated: Chat ${chatStatus}, Autocomplete ${autoStatus}`
+        );
     });
 
     // 3. Status Bar 
@@ -288,9 +293,24 @@ export function activate(context: vscode.ExtensionContext) {
     );
 
     context.subscriptions.push(askAIDisposable, resetDisposable, toggleDisposable, inlineProvider); 
-    console.log("✅ AI Assistant extension fully activated");
+    console.log("AI Assistant extension fully activated");
 }
 
 export function deactivate() {
-    console.log("AI Assistant extension deactivated");
+    const config = vscode.workspace.getConfiguration("localAI");
+    const chatEnabled = config.get<boolean>("enableChat", false);
+    const autoEnabled = config.get<boolean>("enableAutocomplete", false);
+    
+    if (chatEnabled) {
+        setModelState("chat", false).catch(err => 
+            console.error("Failed to unload chat model:", err)
+        );
+    }
+    
+    if (autoEnabled) {
+        setModelState("autocomplete", false).catch(err => 
+            console.error("Failed to unload autocomplete model:", err)
+        );
+    }
+    console.log("AI Assistant extension deactivated. All models have been unloaded");
 }
