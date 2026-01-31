@@ -1,6 +1,4 @@
-# 🚧 **Work in Progress** – This project is under development
-
-# 🧠 Simple Local AI Coding Assistant
+# Simple Local AI Coding Assistant
 
 An offline AI coding assistant that runs **locally** and integrates directly into VSCode.  
 It uses a FastAPI backend with **LangGraph + Ollama** and a custom VSCode extension to provide code explanations, refactoring suggestions, and tool-augmented developer help — all **without sending code to the cloud**.
@@ -9,13 +7,12 @@ It uses a FastAPI backend with **LangGraph + Ollama** and a custom VSCode extens
 
 ## ✨ Features
 
-- ⚡ **Runs locally** — keep your code private.
-- 📝 **Code selection processing** — highlight code (optional) and ask the AI.
-- 🔄 **Streaming responses** with LangGraph.
-- 🧠 **Memory** — session history stored in MongoDB.
-- 🛠 **Tool support** — the agent can call functions (list files, run commands, etc.).
-- 🖥 **VSCode integration** via a custom extension.
-- 🧩 Easily switch models (Qwen, CodeLlama, etc.).
+- **Runs locally** — keep your code private.
+- **Code selection processing** — highlight code (optional) and ask the AI.
+- **Streaming responses** with LangGraph.
+- **Memory** — session history stored in MongoDB.
+- **Tool support** — the agent can call functions (list files, run commands, etc.).
+- **VSCode integration** via a custom extension.
 
 ---
 
@@ -55,57 +52,44 @@ git clone https://github.com/NguyenHoangNhat-git/Coding-Agent.git
 cd Coding-Agent
 ```
 
-### Setup dependencies
-
-```bash
-python -m venv .venv
-source .venv/bin/activate    # On Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-```
-
-### Pull the models from ollama
-
-Pull mistral(for agent) and qwen(for autocomplete)
+### Pull the models from Ollama
 
 ```bash
 ollama pull mistral:7b
 ollama pull qwen2.5-coder:1.5b
 ```
 
-#### Run MongoDB
-
-```bash
-sudo systemctl start mongod
-```
-
-#### Run the FastAPI server
+### Start the backend with Docker
 
 ```bash
 cd backend
-uvicorn main:app --reload --port 8000
+docker compose up -d
 ```
 
-API is available at `http://localhost:8000`.
+The API is available at `http://localhost:8000`.
 
----
+- Stop backend
+
+```bash
+cd backend
+docker compose down
+```
 
 ### Setup the VSCode Extension
 
 ```bash
-cd ../extension
 npm install
 ```
 
 #### Run
 
-1. Open the `extension` folder in VSCode.
-2. Press **F5** -> launch a new **Extension Development Host** window.
-3. Press **Ctrl+Shift+P** to search for commands
-4. Agent commands:
-
-- Select a piece of code and run `Simple Code Agent: Ask Agent` to ask for explanation or just general questions.
-- Run `Simple code agent: Toggle settings` to to turn on/off chat and/or autocomplete model.
-- Run `Simple code agent: Reset session` to clear the memory
+1. Open the project in VSCode
+2. Press **F5** to launch a new Extension Development Host window
+3. Use the status bar (bottom-right) to toggle models on/off
+4. Press **Ctrl+Shift+P** and search for commands:
+   - `Simple Code Agent: Ask Agent` — Ask questions about code
+   - `Simple Code Agent: Toggle Settings` — Enable/disable models
+   - `Simple Code Agent: Reset Session` — Clear memory
 
 ---
 
@@ -124,3 +108,32 @@ npm install
 - Ollama
 - MongoDB
 - VSCode
+- Docker
+
+## Docker Commands
+
+Start services:
+
+```bash
+docker compose up -d
+```
+
+Stop services:
+
+```bash
+docker compose down
+```
+
+View logs:
+
+```bash
+docker compose logs -f
+```
+
+Rebuild after changes:
+
+````bash
+docker compose up -d --build
+```"
+```
+````
